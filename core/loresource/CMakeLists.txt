@@ -1,0 +1,40 @@
+add_library(loresource
+  font.c
+  language.c
+  music.c
+  set.c
+  sound.c
+  text.c
+)
+target_any_sources(loresource
+  font/sans.woff
+  font/serif.woff
+
+  music/biome_boss.mp3
+  music/biome_cavias_camp.mp3
+  music/biome_laboratory.mp3
+  music/biome_metaphysical_gate.mp3
+  music/boss_big_warder.mp3
+  music/boss_greedy_scientist.mp3
+  music/boss_theists_child.mp3
+  music/title.mp3
+
+  sound/bomb.mp3
+  sound/enemy_shoot.mp3
+  sound/enemy_trigger.mp3
+  sound/damage.mp3
+  sound/dodge.mp3
+  sound/dying.mp3
+  sound/guard.mp3
+  sound/player_shoot.mp3
+  sound/player_trigger.mp3
+  sound/reflection.mp3
+  sound/touch_gate.mp3
+)
+target_link_libraries(loresource
+  dictres
+  glyphas
+  jukebox
+  math
+  memory
+)

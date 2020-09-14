@@ -1,0 +1,63 @@
+add_library(loshader
+  backwall.c
+  bullet.c
+  character.c
+  cinescope.c
+  combat_ring.c
+  event_line.c
+  fog.c
+  ground.c
+  hud_bar.c
+  hud_text.c
+  menu_background.c
+  menu_stance.c
+  menu_text.c
+  pixsort.c
+  posteffect.c
+  set.c
+  uniblock.c
+)
+target_any_sources(loshader
+  backwall.vshader
+  backwall.fshader
+  bullet.vshader
+  bullet.fshader
+  character.vshader
+  character.fshader
+  cinescope.vshader
+  cinescope.fshader
+  combat_ring.vshader
+  combat_ring.fshader
+  event_line.vshader
+  event_line.fshader
+  fog.vshader
+  fog.fshader
+  ground.vshader
+  ground.fshader
+  header.shader
+  hud_bar.vshader
+  hud_bar.fshader
+  hud_text.vshader
+  hud_text.fshader
+  menu_background.vshader
+  menu_background.fshader
+  menu_stance.vshader
+  menu_stance.fshader
+  menu_text.vshader
+  menu_text.fshader
+  pixsort.vshader
+  pixsort.fshader
+  posteffect.vshader
+  posteffect.fshader
+)
+target_link_libraries(loshader
+  GLEW::GLEW
+  OpenGL::GL
+
+  gleasy
+  glyphas
+  math
+  memory
+
+  locommon
+)

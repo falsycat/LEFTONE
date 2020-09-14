@@ -1,0 +1,13 @@
+include_directories(.)
+
+add_subdirectory(lobullet)
+add_subdirectory(locharacter)
+add_subdirectory(locommon)
+add_subdirectory(loeffect)
+add_subdirectory(loentity)
+add_subdirectory(loground)
+add_subdirectory(loplayer)
+add_subdirectory(loresource)
+add_subdirectory(loscene)
+add_subdirectory(loshader)
+add_subdirectory(loworld)
