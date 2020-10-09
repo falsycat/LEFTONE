@@ -26,6 +26,11 @@ locommon_counter_count(
 );
 
 void
+locommon_counter_reset(
+    locommon_counter_t* counter
+);
+
+void
 locommon_counter_pack(
     const locommon_counter_t* counter,
     msgpack_packer*           packer

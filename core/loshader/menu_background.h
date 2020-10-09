@@ -2,41 +2,24 @@
 
 #include "util/gleasy/program.h"
 
+#include "./single.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_menu_background_program_t;
+typedef struct {
+  loshader_single_drawer_t super;
 
-struct loshader_menu_background_drawer_t;
-typedef
-    struct loshader_menu_background_drawer_t
-    loshader_menu_background_drawer_t;
-
-void
-loshader_menu_background_program_initialize(
-    loshader_menu_background_program_t* prog
-);
+  /* public mutable params */
+  float alpha;
+} loshader_menu_background_drawer_t;
 
 void
-loshader_menu_background_program_deinitialize(
-    loshader_menu_background_program_t* prog
-);
-
-loshader_menu_background_drawer_t*
-loshader_menu_background_drawer_new(
-    const loshader_menu_background_program_t* prog,
-    const loshader_uniblock_t*                uniblock
-);
-
-void
-loshader_menu_background_drawer_delete(
-    loshader_menu_background_drawer_t* drawer
-);
-
-void
-loshader_menu_background_drawer_set_alpha(
+loshader_menu_background_drawer_initialize(
     loshader_menu_background_drawer_t* drawer,
-    float                              alpha
+    const loshader_uniblock_t*         uniblock
 );
+
+#define loshader_menu_background_drawer_deinitialize(drawer)  \
+    loshader_single_drawer_deinitialize(&(drawer)->super)
 
 void
 loshader_menu_background_drawer_draw(

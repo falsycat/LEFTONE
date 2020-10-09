@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "thirdparty/miniaudio/miniaudio.h"
+#include <miniaudio.h>
 
 #include "util/container/array.h"
 #include "util/memory/memory.h"

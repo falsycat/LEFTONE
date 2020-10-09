@@ -14,24 +14,19 @@
 
 #define LOWORLD_CHUNK_FILENAME_MAX 64
 
-/* dont forget to change EACH macro */
 typedef enum {
+  /* BENUM BEGIN loworld_chunk_biome */
   LOWORLD_CHUNK_BIOME_METAPHYSICAL_GATE,
   LOWORLD_CHUNK_BIOME_CAVIAS_CAMP,
   LOWORLD_CHUNK_BIOME_LABORATORY,
   LOWORLD_CHUNK_BIOME_BOSS_THEISTS_CHILD,
   LOWORLD_CHUNK_BIOME_BOSS_BIG_WARDER,
   LOWORLD_CHUNK_BIOME_BOSS_GREEDY_SCIENTIST,
+  /* BENUM END */
 } loworld_chunk_biome_t;
 
-#define LOWORLD_CHUNK_BIOME_EACH_(PROC) do {  \
-  PROC(METAPHYSICAL_GATE,     metaphysical-gate);  \
-  PROC(CAVIAS_CAMP,           cavias-camp);  \
-  PROC(LABORATORY,            laboratory);  \
-  PROC(BOSS_THEISTS_CHILD,    boss-theists-child);  \
-  PROC(BOSS_BIG_WARDER,       boss-big-warder);  \
-  PROC(BOSS_GREEDY_SCIENTIST, boss-greedy-scientist);  \
-} while (0)
+/* generated enum utility */
+#include "core/loworld/benum/chunk.h"
 
 typedef struct {
   struct {
@@ -43,18 +38,6 @@ typedef struct {
 
   CONTAINER_ARRAY loentity_t** entities;
 } loworld_chunk_t;
-
-const char*
-loworld_chunk_biome_stringify(
-    loworld_chunk_biome_t biome
-);
-
-bool
-loworld_chunk_biome_unstringify(
-    loworld_chunk_biome_t* biome,
-    const char*            str,
-    size_t                 len
-);
 
 void
 loworld_chunk_initialize(

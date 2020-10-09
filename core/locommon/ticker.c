@@ -22,9 +22,11 @@ void locommon_ticker_tick(locommon_ticker_t* ticker, uint64_t time) {
   assert(ticker       != NULL);
   assert(ticker->time <= time);
 
-  ticker->delta = time - ticker->time;
+  ticker->delta   = time - ticker->time;
   ticker->delta_f = ticker->delta*1.f / LOCOMMON_TICKER_UNIT;
-  ticker->time  = time;
+
+  ticker->prev_time = ticker->time;
+  ticker->time      = time;
 }
 
 void locommon_ticker_pack(

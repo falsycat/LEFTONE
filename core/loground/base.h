@@ -9,25 +9,21 @@
 #include "core/loentity/ground.h"
 #include "core/loshader/ground.h"
 
-#include "./misc.h"
+#include "./type.h"
 
 typedef struct {
   loentity_ground_t super;
   bool              used;
 
-  /* injected deps */
   loshader_ground_drawer_t* drawer;
 
-  /* params not to be packed */
+  struct {
+    loground_type_t type;
+  } param;
+
   struct {
     loshader_ground_drawer_instance_t instance;
   } cache;
-
-  /* params to be packed (includes id, pos, and size) */
-  loground_type_t type;
-
-# define LOGROUND_BASE_DATA_MAX_SIZE 256
-  uint8_t data[LOGROUND_BASE_DATA_MAX_SIZE];
 } loground_base_t;
 
 void

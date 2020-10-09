@@ -2,7 +2,6 @@ layout (location = 0) in float i_id;
 layout (location = 1) in vec2  i_pos;
 layout (location = 2) in vec2  i_size;
 layout (location = 3) in float i_alpha;
-layout (location = 4) in float i_highlight;
 
 out float v_id;
 out vec2  v_uv;
@@ -88,6 +87,5 @@ void main(void) {
   v_id    = i_id;
   v_alpha = i_alpha;
 
-  float s = i_highlight*.2 + 1.;
-  gl_Position = vec4(v_uv*i_size*s + i_pos, 0., 1.);
+  gl_Position = vec4(v_uv*i_size + i_pos, 0., 1.);
 }

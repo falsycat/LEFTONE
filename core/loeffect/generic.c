@@ -45,8 +45,8 @@ void loeffect_generic_lasting_param_pack(
 
   msgpack_pack_map(packer, 3);
 
-  mpkutil_pack_str(packer, "begin");
-  msgpack_pack_uint64(packer, param->begin);
+  mpkutil_pack_str(packer, "start");
+  msgpack_pack_uint64(packer, param->start);
 
   mpkutil_pack_str(packer, "duration");
   msgpack_pack_uint64(packer, param->duration);
@@ -66,7 +66,7 @@ bool loeffect_generic_lasting_param_unpack(
 
 # define item_(v) mpkutil_get_map_item_by_str(root, v)
 
-  if (!mpkutil_get_uint64(item_("begin"), &param->begin)) {
+  if (!mpkutil_get_uint64(item_("start"), &param->start)) {
     return false;
   }
   if (!mpkutil_get_uint64(item_("duration"), &param->duration)) {

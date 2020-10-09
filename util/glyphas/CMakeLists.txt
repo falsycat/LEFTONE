@@ -27,7 +27,7 @@ target_link_libraries(glyphas
 if (BUILD_TESTING)
   add_executable(glyphas-test test.c)
   target_link_libraries(glyphas-test
-    SDL2::SDL2
+    ${SDL2_TARGET}
 
     glyphas)
 endif()

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "thirdparty/miniaudio/miniaudio.h"
+#include <miniaudio.h>
 
 #include "util/math/algorithm.h"
 #include "util/math/rational.h"

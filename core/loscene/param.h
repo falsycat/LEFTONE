@@ -18,9 +18,4 @@ typedef struct {
   loworld_environment_config_t environment;
 
   bool skip_title;
-
-  struct {
-    bool loworld_poolset_packing;
-    bool loplayer_packing;
-  } test;
 } loscene_param_t;

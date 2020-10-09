@@ -21,10 +21,10 @@ void loresource_set_initialize(
   assert(mixer != NULL);
   assert(jukebox_format_valid(format));
 
-  *res = (typeof(*res)) {
-    .sound = loresource_sound_new(mixer, format),
-  };
-  loresource_music_initialize(&res->music, mixer, format);
+  *res = (typeof(*res)) {0};
+
+  loresource_sound_set_initialize(&res->sound, mixer, format);
+  loresource_music_set_initialize(&res->music, mixer, format);
   loresource_font_initialize(&res->font);
   loresource_set_change_language(res, lang);
 }
@@ -33,8 +33,8 @@ void loresource_set_deinitialize(loresource_set_t* res) {
   assert(res != NULL);
 
   loresource_font_deinitialize(&res->font);
-  loresource_sound_delete(res->sound);
-  loresource_music_deinitialize(&res->music);
+  loresource_music_set_deinitialize(&res->music);
+  loresource_sound_set_deinitialize(&res->sound);
 }
 
 void loresource_set_change_language(

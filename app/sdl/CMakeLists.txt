@@ -5,7 +5,7 @@ add_executable(app-sdl
 )
 target_link_libraries(app-sdl
   GLEW::GLEW
-  SDL2::SDL2
+  ${SDL2_TARGET}
 
   conv
   parsarg

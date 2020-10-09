@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "util/flasy/flasy.h"
+
 #include "./chunk.h"
 #include "./generator.h"
 #include "./poolset.h"
@@ -14,6 +16,7 @@ typedef struct loworld_store_t loworld_store_t;
 /* TODO(catfoot): make it possible to specify a path to chunk dir */
 loworld_store_t*  /* OWNERSHIP */
 loworld_store_new(
+    flasy_t*                   flasy,
     const loworld_poolset_t*   pools,
     const loworld_generator_t* gen,
     size_t                     chunks_length,

@@ -9,6 +9,7 @@
 
 typedef struct {
   uint64_t time;
+  uint64_t prev_time;
 
   int64_t  delta;
   float    delta_f;

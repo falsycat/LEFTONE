@@ -105,6 +105,9 @@ vec2 cavia_stand1(void) {
   );
   return gl_VertexID < verts.length()? verts[gl_VertexID]: vec2(0.);
 }
+vec2 cavia_stand2(void) {
+  return cavia_stand1()*vec2(1., .95) + vec2(0., -.05);
+}
 vec2 cavia_walk(void) {
   const vec2[] verts = vec2[](
       vec2( 0.06,  1.00), vec2(-0.16,  0.72), vec2( 0.36,  0.58),
@@ -176,6 +179,7 @@ vec2 cavia_down(void) {
 vec2 cavia(in float motion_id) {
   return
       (motion_id == 0.)? cavia_stand1():
+      (motion_id == 1.)? cavia_stand2():
       (motion_id == 2.)? cavia_walk():
       (motion_id == 3.)? cavia_attack1():
       (motion_id == 4.)? cavia_attack2():

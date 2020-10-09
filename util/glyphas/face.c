@@ -11,6 +11,16 @@
 
 #include "./context.h"
 
+static const char* glyphas_face_get_ft_error_str_(FT_Error err) {
+  /* what a fucking trick lol.
+   * https://stackoverflow.com/questions/61641364/gcc-cant-find-ft-error-string-when-trying-to-compile */
+# undef FTERRORS_H_
+# define FT_ERRORDEF(code, val, str) case code: return str;
+# define FT_ERROR_START_LIST switch(err) {
+# define FT_ERROR_END_LIST default: return "unknown"; }
+# include FT_ERRORS_H
+}
+
 void glyphas_face_initialize_from_file(
     glyphas_face_t*          face,
     const glyphas_context_t* ctx,
@@ -23,8 +33,8 @@ void glyphas_face_initialize_from_file(
 
   const FT_Error err = FT_New_Face(ctx->ft, path, index, &face->ft);
   if (err != FT_Err_Ok) {
-    fprintf(stderr,
-        "failed to load font file '%s': %s\n", path, FT_Error_String(err));
+    fprintf(stderr, "failed to load font file '%s': %s\n",
+        path, glyphas_face_get_ft_error_str_(err));
     abort();
   }
 }
@@ -43,8 +53,8 @@ void glyphas_face_initialize_from_buffer(
   const FT_Error err =
       FT_New_Memory_Face(ctx->ft, data, length, index, &face->ft);
   if (err != FT_Err_Ok) {
-    fprintf(stderr,
-        "failed to load font on memory: %s\n", FT_Error_String(err));
+    fprintf(stderr, "failed to load font on memory: %s\n",
+        glyphas_face_get_ft_error_str_(err));
     abort();
   }
 }

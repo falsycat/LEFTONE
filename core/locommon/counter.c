@@ -26,6 +26,12 @@ size_t locommon_counter_count(locommon_counter_t* counter) {
   return counter->next++;
 }
 
+void locommon_counter_reset(locommon_counter_t* counter) {
+  assert(counter != NULL);
+
+  counter->next = 0;
+}
+
 void locommon_counter_pack(
     const locommon_counter_t* counter, msgpack_packer* packer) {
   assert(counter != NULL);

@@ -9,7 +9,6 @@
 #include <msgpack.h>
 #include <msgpack/fbuffer.h>
 
-#include "util/chaos/xorshift.h"
 #include "util/glyphas/block.h"
 #include "util/glyphas/cache.h"
 #include "util/jukebox/amp.h"
@@ -22,13 +21,12 @@
 #include "core/locommon/input.h"
 #include "core/locommon/position.h"
 #include "core/loresource/music.h"
-#include "core/loresource/set.h"
 #include "core/loresource/text.h"
 #include "core/loshader/backwall.h"
 #include "core/loshader/fog.h"
 #include "core/loshader/menu_text.h"
-#include "core/loshader/set.h"
 
+#include "./context.h"
 #include "./game.h"
 #include "./param.h"
 #include "./scene.h"
@@ -44,10 +42,7 @@ typedef enum {
 typedef struct {
   loscene_t header;
 
-  const loscene_param_t*   param;
-  loresource_set_t*        res;
-  loshader_set_t*          shaders;
-  const locommon_ticker_t* ticker;
+  loscene_context_t* ctx;
 
   struct {
     vec2_t fontsz_large;
@@ -68,7 +63,7 @@ typedef struct {
     glyphas_block_t* buttons;
   } text;
 
-  loresource_music_player_t* music;
+  loresource_music_t* music;
 
   loscene_title_state_t state;
   uint64_t              since;
@@ -80,29 +75,25 @@ typedef struct {
 static void loscene_title_calculate_geometry_(loscene_title_t* s) {
   assert(s != NULL);
 
-  const vec2_t* dpi  = &s->shaders->dpi;
-  const vec2_t* reso = &s->shaders->resolution;
-
-  s->geo.fontpx_large = *dpi;
-  vec2_muleq(&s->geo.fontpx_large, .8f);
-
-  s->geo.fontpx_small = *dpi;
-  vec2_muleq(&s->geo.fontpx_small, .14f);
-
-# define px_to_disp_(v) vec2((v).x/reso->x*2, (v).y/reso->y*2)
-
-  s->geo.fontsz_large = px_to_disp_(s->geo.fontpx_large);
-  s->geo.fontsz_small = px_to_disp_(s->geo.fontpx_small);
-
-# undef px_to_disp_
+  locommon_screen_calc_pixels_from_inch(
+      &s->ctx->screen, &s->geo.fontpx_large, &vec2(.8f, .8f));
+  locommon_screen_calc_pixels_from_inch(
+      &s->ctx->screen, &s->geo.fontpx_small, &vec2(.14f, .14f));
+  locommon_screen_calc_winpos_from_pixels(
+      &s->ctx->screen, &s->geo.fontsz_large, &s->geo.fontpx_large);
+  locommon_screen_calc_winpos_from_pixels(
+      &s->ctx->screen, &s->geo.fontsz_small, &s->geo.fontpx_small);
 }
 
 static void loscene_title_create_text_block_(loscene_title_t* s) {
   assert(s != NULL);
 
-  const char* title   = loresource_text_get(s->res->lang, "app_name");
-  const char* author  = loresource_text_get(s->res->lang, "title_authors");
-  const char* buttons = loresource_text_get(s->res->lang, "title_buttons");
+  const char* title   =
+      loresource_text_get(s->ctx->resources.lang, "app_name");
+  const char* author  =
+      loresource_text_get(s->ctx->resources.lang, "title_authors");
+  const char* buttons =
+      loresource_text_get(s->ctx->resources.lang, "title_buttons");
 
   static const vec4_t color = vec4(1, 1, 1, 1);
 
@@ -132,7 +123,7 @@ static void loscene_title_create_text_block_(loscene_title_t* s) {
       s->text.buttons, s->font.small, &color, buttons, strlen(buttons));
 
   const vec2_t scale = vec2(
-      2/s->shaders->resolution.x, 2/s->shaders->resolution.y);
+      2/s->ctx->screen.resolution.x, 2/s->ctx->screen.resolution.y);
   glyphas_block_scale(s->text.title,  &scale);
   glyphas_block_scale(s->text.author, &scale);
   glyphas_block_scale(s->text.buttons, &scale);
@@ -152,16 +143,17 @@ static void loscene_title_update_uniblock_(loscene_title_t* s) {
 
   static const uint64_t camspeed = 5000;
 
-  const uint64_t chunk = s->ticker->time/camspeed;
-  const float    fract = s->ticker->time%camspeed*1.f/camspeed;
+  const uint64_t chunk = s->ctx->ticker.time/camspeed;
+  const float    fract = s->ctx->ticker.time%camspeed*1.f/camspeed;
 
-  const loshader_uniblock_param_t p = {
-    .proj = mat4_identity(),
-    .cam  = mat4_identity(),
-    .pos  = locommon_position(chunk, 0, vec2(fract, 0)),
-    .time = s->ticker->time%60000/1000.0f,
-  };
-  loshader_uniblock_update_param(s->shaders->uniblock, &p);
+  loshader_uniblock_update_param(
+      &s->ctx->shaders.uniblock,
+      &(loshader_uniblock_param_t) {
+        .proj = mat4_identity(),
+        .cam  = mat4_identity(),
+        .pos  = locommon_position(chunk, 0, vec2(fract, 0)),
+        .time = s->ctx->ticker.time%60000/1000.0f,
+      });
 }
 
 static void loscene_title_delete_(loscene_t* scene) {
@@ -189,47 +181,47 @@ static loscene_t* loscene_title_update_(
   loscene_title_t* s = (typeof(s)) scene;
 
   if (s->music == NULL) {
-    s->music = &s->res->music.title;
+    s->music = loresource_music_set_get(
+        &s->ctx->resources.music, LORESOURCE_MUSIC_ID_TITLE);
     jukebox_decoder_play(s->music->decoder, &rational(0, 1), true);
     jukebox_amp_change_volume(&s->music->amp, 1, &rational(1, 1));
   }
 
   switch (s->state) {
   case LOSCENE_TITLE_STATE_EXPECT_BUTTON_RELEASE:
-    s->fade = 1 - (s->ticker->time - s->since)*1.f / fadedur;
+    s->fade = 1 - (s->ctx->ticker.time - s->since)*1.f / fadedur;
     if (s->fade < 0) s->fade = 0;
     if (input->buttons == 0 && s->fade <= 0) {
       s->state = LOSCENE_TITLE_STATE_EXPECT_BUTTON_PRESS;
     }
     break;
   case LOSCENE_TITLE_STATE_EXPECT_BUTTON_PRESS:
-    if (input->buttons & LOCOMMON_INPUT_BUTTON_ATTACK) {
+    if (input->buttons & LOCOMMON_INPUT_BUTTON_OK) {
       jukebox_amp_change_volume(&s->music->amp, 0, &rational(fadedur, 1000));
       jukebox_decoder_stop_after(s->music->decoder, &rational(fadedur, 1000));
 
       s->state = LOSCENE_TITLE_STATE_FADING_TO_GAME;
-      s->since = s->ticker->time;
+      s->since = s->ctx->ticker.time;
     } else if (input->buttons & LOCOMMON_INPUT_BUTTON_MENU) {
       jukebox_amp_change_volume(&s->music->amp, 0, &rational(fadedur, 1000));
       jukebox_decoder_stop_after(s->music->decoder, &rational(fadedur, 1000));
 
       s->state = LOSCENE_TITLE_STATE_FADING_TO_EXIT;
-      s->since = s->ticker->time;
+      s->since = s->ctx->ticker.time;
     }
     break;
   case LOSCENE_TITLE_STATE_FADING_TO_GAME:
-    if (s->since + fadedur < s->ticker->time) {
-      return loscene_game_new(
-          s->param, s->res, s->shaders, s->ticker, true  /* = load data */);
+    if (s->since + fadedur < s->ctx->ticker.time) {
+      return loscene_game_new(s->ctx, true  /* = load data */);
     } else {
-      s->fade = (s->ticker->time - s->since)*1.f/fadedur;
+      s->fade = (s->ctx->ticker.time - s->since)*1.f/fadedur;
     }
     break;
   case LOSCENE_TITLE_STATE_FADING_TO_EXIT:
-    if (s->since + fadedur < s->ticker->time) {
+    if (s->since + fadedur < s->ctx->ticker.time) {
       return NULL;
     } else {
-      s->fade = (s->ticker->time - s->since)*1.f/fadedur;
+      s->fade = (s->ctx->ticker.time - s->since)*1.f/fadedur;
     }
     break;
   }
@@ -242,63 +234,56 @@ static void loscene_title_draw_(loscene_t* scene) {
   loscene_title_t* s = (typeof(s)) scene;
   loscene_title_update_uniblock_(s);
 
-  loshader_set_clear_all(s->shaders);
+  loshader_set_clear_all(&s->ctx->shaders);
 
   loshader_backwall_drawer_set_param(
-      s->shaders->drawer.backwall,
+      &s->ctx->shaders.drawer.backwall,
       &(loshader_backwall_drawer_param_t) {
         .type       = LOSHADER_BACKWALL_TYPE_JAIL,
         .transition = 1,
       });
 
   loshader_fog_drawer_set_param(
-      s->shaders->drawer.fog,
+      &s->ctx->shaders.drawer.fog,
       &(loshader_fog_drawer_param_t) {
         .type       = LOSHADER_FOG_TYPE_WHITE_CLOUD,
         .transition = 1,
       });
 
-  loshader_pixsort_drawer_set_intensity(s->shaders->drawer.pixsort, 0);
+  s->ctx->shaders.drawer.pixsort.intensity = 0;
 
   loshader_posteffect_drawer_set_param(
-      s->shaders->drawer.posteffect,
+      &s->ctx->shaders.drawer.posteffect,
       &(loshader_posteffect_drawer_param_t) {
-        .whole_blur           = 1,
-        .radial_displacement  = .05f,
-        .amnesia_displacement = .1f,
-        .radial_fade          = .5f + s->fade*.3f,
-        .brightness           = s->param->brightness/1000.f,
+        .blur_whole         = 1,
+        .distortion_radial  = .05f,
+        .distortion_amnesia = .1f,
+        .fade_radial        = .5f + s->fade*.3f,
+        .brightness_whole   = s->ctx->param.brightness/1000.f,
       });
 
-  s->shaders->drawer.menu_text.alpha = 1;
+  s->ctx->shaders.drawer.menu_text.alpha = 1;
   loshader_menu_text_drawer_add_block(
-      &s->shaders->drawer.menu_text, s->text.title);
+      &s->ctx->shaders.drawer.menu_text, s->text.title);
   loshader_menu_text_drawer_add_block(
-      &s->shaders->drawer.menu_text, s->text.author);
+      &s->ctx->shaders.drawer.menu_text, s->text.author);
   loshader_menu_text_drawer_add_block(
-      &s->shaders->drawer.menu_text, s->text.buttons);
+      &s->ctx->shaders.drawer.menu_text, s->text.buttons);
 
   loshader_cinescope_drawer_set_param(
-      s->shaders->drawer.cinescope,
+      &s->ctx->shaders.drawer.cinescope,
       &(loshader_cinescope_drawer_param_t) {0});
 
-  loshader_set_draw_all(s->shaders);
+  loshader_set_draw_all(&s->ctx->shaders);
 }
 
-loscene_t* loscene_title_new(
-    const loscene_param_t*   param,
-    loresource_set_t*        res,
-    loshader_set_t*          shaders,
-    const locommon_ticker_t* ticker) {
-  assert(param   != NULL);
-  assert(res     != NULL);
-  assert(shaders != NULL);
-  assert(ticker  != NULL);
+loscene_t* loscene_title_new(loscene_context_t* ctx) {
+  assert(ctx != NULL);
 
-  loshader_set_drop_cache(shaders);
+  loshader_set_drop_cache(&ctx->shaders);
 
-  loscene_title_t* scene = memory_new(sizeof(*scene));
-  *scene = (typeof(*scene)) {
+  loscene_title_t* s = memory_new(sizeof(*s));
+  *s = (typeof(*s)) {
     .header = {
       .vtable = {
         .delete = loscene_title_delete_,
@@ -306,28 +291,25 @@ loscene_t* loscene_title_new(
         .draw   = loscene_title_draw_,
       },
     },
-    .param   = param,
-    .res     = res,
-    .shaders = shaders,
-    .ticker  = ticker,
+    .ctx = ctx,
 
     .state = LOSCENE_TITLE_STATE_EXPECT_BUTTON_RELEASE,
-    .since = ticker->time,
+    .since = ctx->ticker.time,
   };
-  loscene_title_calculate_geometry_(scene);
+  loscene_title_calculate_geometry_(s);
 
-  scene->font = (typeof(scene->font)) {
+  s->font = (typeof(s->font)) {
     .large = glyphas_cache_new(
-        shaders->tex.menu_text,
-        &res->font.sans,
-        scene->geo.fontpx_large.x,
-        scene->geo.fontpx_large.y),
+        s->ctx->shaders.tex.menu_text,
+        &s->ctx->resources.font.sans,
+        s->geo.fontpx_large.x,
+        s->geo.fontpx_large.y),
     .small = glyphas_cache_new(
-        shaders->tex.menu_text,
-        &res->font.sans,
-        scene->geo.fontpx_small.x,
-        scene->geo.fontpx_small.y),
+        s->ctx->shaders.tex.menu_text,
+        &s->ctx->resources.font.sans,
+        s->geo.fontpx_small.x,
+        s->geo.fontpx_small.y),
   };
-  loscene_title_create_text_block_(scene);
-  return &scene->header;
+  loscene_title_create_text_block_(s);
+  return &s->header;
 }

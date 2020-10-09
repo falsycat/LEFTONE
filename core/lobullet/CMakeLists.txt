@@ -1,9 +1,13 @@
 add_library(lobullet
   base.c
-  bomb.c
   linear.c
-  misc.c
   pool.c
+)
+target_benum_sources(lobullet
+  type.h
+)
+target_crial_sources(lobullet
+  base.crial
 )
 target_link_libraries(lobullet
   msgpackc

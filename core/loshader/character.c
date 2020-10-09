@@ -11,36 +11,26 @@
 #include "util/gleasy/buffer.h"
 #include "util/gleasy/program.h"
 #include "util/math/vector.h"
-#include "util/memory/memory.h"
 
+#include "./instanced.h"
 #include "./uniblock.h"
 
 /* resources */
-#include "anysrc/header.shader.h"
-#include "anysrc/character.vshader.h"
-#include "anysrc/character.fshader.h"
+#include "core/loshader/anysrc/header.shader.h"
+#include "core/loshader/anysrc/character.vshader.h"
+#include "core/loshader/anysrc/character.fshader.h"
 
-#define LOSHADER_CHARACTER_VSHADER_IN_CHARACTER_ID   0
-#define LOSHADER_CHARACTER_VSHADER_IN_FROM_MOTION_ID 1
-#define LOSHADER_CHARACTER_VSHADER_IN_TO_MOTION_ID   2
-#define LOSHADER_CHARACTER_VSHADER_IN_MOTION_TIME    3
-#define LOSHADER_CHARACTER_VSHADER_IN_MARKER         4
-#define LOSHADER_CHARACTER_VSHADER_IN_MARKER_OFFSET  5
-#define LOSHADER_CHARACTER_VSHADER_IN_POS            6
-#define LOSHADER_CHARACTER_VSHADER_IN_SIZE           7
-#define LOSHADER_CHARACTER_VSHADER_IN_COLOR          8
+#define VSHADER_IN_CHARACTER_ID_   0
+#define VSHADER_IN_FROM_MOTION_ID_ 1
+#define VSHADER_IN_TO_MOTION_ID_   2
+#define VSHADER_IN_MOTION_TIME_    3
+#define VSHADER_IN_MARKER_         4
+#define VSHADER_IN_MARKER_OFFSET_  5
+#define VSHADER_IN_POS_            6
+#define VSHADER_IN_SIZE_           7
+#define VSHADER_IN_COLOR_          8
 
-struct loshader_character_drawer_t {
-  const loshader_character_program_t* prog;
-
-  const loshader_uniblock_t* uniblock;
-
-  GLuint vao;
-
-  gleasy_buffer_array_t instances;
-  size_t                instances_reserved;
-  size_t                instances_length;
-};
+#define PRIMITIVE_COUNT_ 54
 
 #pragma pack(push, 1)
 typedef struct {
@@ -59,105 +49,46 @@ typedef struct {
 } loshader_character_drawer_internal_instance_t;
 #pragma pack(pop)
 
-#define LOSHADER_CHARACTER_UNIBLOCK_INDEX 0
+void loshader_character_drawer_initialize(
+    loshader_character_drawer_t* drawer, const loshader_uniblock_t* uniblock) {
+  assert(drawer   != NULL);
+  assert(uniblock != NULL);
 
-#define LOSHADER_CHARACTER_PRIMITIVE_COUNT 54
-
-static void loshader_character_program_setup_vao_(
-    const loshader_character_program_t* prog, gleasy_buffer_array_t instances) {
-  assert(prog      != NULL);
-  assert(instances != 0);
-
-  glBindBuffer(GL_ARRAY_BUFFER, instances);
-
-# define enable_attrib_(NAME, name, dim, type) do {  \
-    glEnableVertexAttribArray(LOSHADER_CHARACTER_VSHADER_IN_##NAME);  \
-    glVertexAttribPointer(  \
-        LOSHADER_CHARACTER_VSHADER_IN_##NAME, dim, type, GL_FALSE,  \
-        sizeof(loshader_character_drawer_internal_instance_t),  \
-        NULL + offsetof(loshader_character_drawer_internal_instance_t, name));  \
-    glVertexAttribDivisor(LOSHADER_CHARACTER_VSHADER_IN_##NAME, 1);  \
-  } while (0)
-
-  enable_attrib_(CHARACTER_ID,   character_id,   1, GL_UNSIGNED_SHORT);
-  enable_attrib_(FROM_MOTION_ID, from_motion_id, 1, GL_UNSIGNED_SHORT);
-  enable_attrib_(TO_MOTION_ID,   to_motion_id,   1, GL_UNSIGNED_SHORT);
-  enable_attrib_(MOTION_TIME,    motion_time,    1, GL_FLOAT);
-  enable_attrib_(MARKER,         marker,         1, GL_FLOAT);
-  enable_attrib_(MARKER_OFFSET,  marker_offset,  2, GL_FLOAT);
-
-  enable_attrib_(POS,   pos,   2, GL_FLOAT);
-  enable_attrib_(SIZE,  size,  2, GL_FLOAT);
-  enable_attrib_(COLOR, color, 4, GL_FLOAT);
-
-# undef enable_attrib_
-}
-
-void loshader_character_program_initialize(loshader_character_program_t* prog) {
-  assert(prog != NULL);
-
-  *prog = gleasy_program_new(
+  gleasy_program_t prog = gleasy_program_new(
       loshader_header_shader_,     sizeof(loshader_header_shader_),
       loshader_character_vshader_, sizeof(loshader_character_vshader_),
       loshader_character_fshader_, sizeof(loshader_character_fshader_));
 
-  const GLuint uniblock = glGetUniformBlockIndex(*prog, "uniblock");
-  assert(glGetError() == GL_NO_ERROR);
+  loshader_instanced_drawer_initialize(
+      &drawer->super,
+      prog,
+      uniblock,
+      sizeof(loshader_character_drawer_internal_instance_t));
 
-  glUniformBlockBinding(*prog, uniblock, LOSHADER_CHARACTER_UNIBLOCK_INDEX);
-}
+  glBindVertexArray(drawer->super.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, drawer->super.instances);
 
-void loshader_character_program_deinitialize(
-    loshader_character_program_t* prog) {
-  assert(prog != NULL);
+# define enable_(index, var, dim, type) do {  \
+    glEnableVertexAttribArray(index);  \
+    glVertexAttribPointer(  \
+        index, dim, type, GL_FALSE,  \
+        sizeof(loshader_character_drawer_internal_instance_t),  \
+        NULL + offsetof(loshader_character_drawer_internal_instance_t, var));  \
+    glVertexAttribDivisor(index, 1);  \
+  } while (0)
 
-  glDeleteProgram(*prog);
-}
+  enable_(VSHADER_IN_CHARACTER_ID_,   character_id,   1, GL_UNSIGNED_SHORT);
+  enable_(VSHADER_IN_FROM_MOTION_ID_, from_motion_id, 1, GL_UNSIGNED_SHORT);
+  enable_(VSHADER_IN_TO_MOTION_ID_,   to_motion_id,   1, GL_UNSIGNED_SHORT);
+  enable_(VSHADER_IN_MOTION_TIME_,    motion_time,    1, GL_FLOAT);
+  enable_(VSHADER_IN_MARKER_,         marker,         1, GL_FLOAT);
+  enable_(VSHADER_IN_MARKER_OFFSET_,  marker_offset,  2, GL_FLOAT);
 
-loshader_character_drawer_t* loshader_character_drawer_new(
-    const loshader_character_program_t* prog,
-    const loshader_uniblock_t*       uniblock) {
-  assert(prog     != NULL);
-  assert(uniblock != NULL);
+  enable_(VSHADER_IN_POS_,   pos,   2, GL_FLOAT);
+  enable_(VSHADER_IN_SIZE_,  size,  2, GL_FLOAT);
+  enable_(VSHADER_IN_COLOR_, color, 4, GL_FLOAT);
 
-  loshader_character_drawer_t* drawer = memory_new(sizeof(*drawer));
-  *drawer = (typeof(*drawer)) {
-    .prog     = prog,
-    .uniblock = uniblock,
-  };
-
-  glGenBuffers(1, &drawer->instances);
-  glCreateVertexArrays(1, &drawer->vao);
-  glBindVertexArray(drawer->vao);
-  loshader_character_program_setup_vao_(drawer->prog, drawer->instances);
-
-  return drawer;
-}
-
-void loshader_character_drawer_delete(loshader_character_drawer_t* drawer) {
-  if (drawer == NULL) return;
-
-  glDeleteBuffers(1, &drawer->instances);
-
-  glDeleteVertexArrays(1, &drawer->vao);
-
-  memory_delete(drawer);
-}
-
-void loshader_character_drawer_clear(
-    loshader_character_drawer_t* drawer, size_t reserve) {
-  assert(drawer != NULL);
-  assert(reserve > 0);
-
-  drawer->instances_length = 0;
-
-  if (drawer->instances_reserved < reserve) {
-    glBindBuffer(GL_ARRAY_BUFFER, drawer->instances);
-    glBufferData(GL_ARRAY_BUFFER,
-        reserve * sizeof(loshader_character_drawer_internal_instance_t),
-        NULL, GL_DYNAMIC_DRAW);
-    drawer->instances_reserved = reserve;
-  }
+# undef enable_
 }
 
 void loshader_character_drawer_add_instance(
@@ -166,40 +97,25 @@ void loshader_character_drawer_add_instance(
   assert(drawer   != NULL);
   assert(instance != NULL);
 
-  if (drawer->instances_length >= drawer->instances_reserved) {
-    fprintf(stderr, "character drawer instance overflow\n");
-    abort();
-  }
-
   const loshader_character_drawer_internal_instance_t insta = {
     .character_id   = instance->character_id,
-    .from_motion_id = instance->from_motion_id,
-    .to_motion_id   = instance->to_motion_id,
-    .motion_time    = instance->motion_time,
+    .from_motion_id = instance->motion.from,
+    .to_motion_id   = instance->motion.to,
+    .motion_time    = instance->motion.time,
     .marker         = instance->marker,
     .marker_offset  = instance->marker_offset,
     .pos   = instance->pos,
     .size  = instance->size,
     .color = instance->color,
   };
-
-  const size_t offset = drawer->instances_length * sizeof(insta);
-  glBindBuffer(GL_ARRAY_BUFFER, drawer->instances);
-  glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(insta), &insta);
-
-  ++drawer->instances_length;
+  if (!loshader_instanced_drawer_add_instance(&drawer->super, &insta)) {
+    fprintf(stderr, "character drawer overflow\n");
+    abort();
+  }
 }
 
 void loshader_character_drawer_draw(const loshader_character_drawer_t* drawer) {
   assert(drawer != NULL);
 
-  if (drawer->instances_length == 0) return;
-
-  glUseProgram(*drawer->prog);
-  glBindVertexArray(drawer->vao);
-
-  loshader_uniblock_bind(drawer->uniblock, LOSHADER_CHARACTER_UNIBLOCK_INDEX);
-
-  glDrawArraysInstanced(GL_TRIANGLES,
-      0, LOSHADER_CHARACTER_PRIMITIVE_COUNT, drawer->instances_length);
+  loshader_instanced_drawer_draw(&drawer->super, PRIMITIVE_COUNT_);
 }

@@ -1,35 +1,31 @@
-#!/bin/sh
+#!/bin/bash
 
-# This script works only with memory-trace file generated in Linux.
+set -eu
 
 file="memory-trace"
-if [ ! -f $file ]; then
+if [[ ! -f $file ]]; then
   echo no memory trace file found
   exit 1
 fi
 
 declare -A addrs
 
-while read line; do
-  IFS=" " read -r type addr1 trash1 addr2 trash2 <<< $line
-
+while IFS=$' \n' read -r type addr1 dummy1_ addr2 dummy2_; do
   case "$type" in
   "new")
-    addrs[$addr1]="allocated"
+    addrs[$addr1]=1
     ;;
   "resize")
-    addrs[$addr1]="freed"
-    addrs[$addr2]="allocated"
+    unset addrs[$addr1]
     ;;
   "delete")
-    addrs[$addr1]="freed"
+    unset addrs[$addr1]
     ;;
-  *) ;;
+  *)
+    ;;
   esac
 done < $file
 
 for addr in "${!addrs[@]}"; do
-  if [ "${addrs[$addr]}" == "allocated" ]; then
-    echo $addr
-  fi
+  echo $addr
 done

@@ -4,13 +4,18 @@
 
 #include <GL/glew.h>
 
+#include "util/gleasy/buffer.h"
 #include "util/math/vector.h"
 #include "util/math/matrix.h"
 
 #include "core/locommon/position.h"
+#include "core/locommon/screen.h"
 
-struct loshader_uniblock_t;
-typedef struct loshader_uniblock_t loshader_uniblock_t;
+typedef struct {
+  const locommon_screen_t* screen;
+
+  gleasy_buffer_uniform_t buf;
+} loshader_uniblock_t;
 
 typedef struct {
   mat4_t proj;
@@ -26,21 +31,15 @@ loshader_uniblock_param_valid(
     const loshader_uniblock_param_t* param
 );
 
-loshader_uniblock_t*  /* OWNERSHIP */
-loshader_uniblock_new(
-    void
+void
+loshader_uniblock_initialize(
+    loshader_uniblock_t*     uni,
+    const locommon_screen_t* screen
 );
 
 void
-loshader_uniblock_delete(
-    loshader_uniblock_t* uni  /* OWNERSHIP */
-);
-
-void
-loshader_uniblock_update_display_param(
-    loshader_uniblock_t* uni,
-    const vec2_t*        resolution,
-    const vec2_t*        dpi
+loshader_uniblock_deinitialize(
+    loshader_uniblock_t* uni
 );
 
 void

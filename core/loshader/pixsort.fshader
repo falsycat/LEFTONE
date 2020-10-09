@@ -5,7 +5,7 @@ in vec2 v_uv;
 
 out vec4 o_color;
 
-const int N = 2;
+const int N = 4;
 const int S = 20;
 
 float luminance(in vec4 col) {

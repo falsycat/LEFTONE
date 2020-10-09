@@ -29,36 +29,6 @@ static void loworld_chunk_pack_entities_(
   }
 }
 
-const char* loworld_chunk_biome_stringify(loworld_chunk_biome_t biome) {
-# define each_(NAME, name)  \
-      if (biome == LOWORLD_CHUNK_BIOME_##NAME) return #name;
-
-  LOWORLD_CHUNK_BIOME_EACH_(each_);
-
-  assert(false);
-  return NULL;
-
-# undef each_
-}
-
-bool loworld_chunk_biome_unstringify(
-    loworld_chunk_biome_t* biome, const char* str, size_t len) {
-  assert(biome != NULL);
-  assert(str != NULL || len == 0);
-
-# define each_(NAME, name) do {  \
-    if (strncmp(str, #name, len) == 0 && #name[len] == 0) {  \
-      *biome = LOWORLD_CHUNK_BIOME_##NAME;  \
-      return true;  \
-    }  \
-  } while (0)
-
-  LOWORLD_CHUNK_BIOME_EACH_(each_);
-  return false;
-
-# undef each_
-}
-
 void loworld_chunk_initialize(loworld_chunk_t* chunk) {
   assert(chunk != NULL);
 

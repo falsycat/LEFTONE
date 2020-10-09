@@ -37,6 +37,8 @@ static void loentity_store_iterator_assign_by_index_(
   case LOENTITY_SUBCLASS_GROUND:
     itr->ground = (loentity_ground_t*) itr->entity;
     break;
+  case LOENTITY_SUBCLASS_PARTICLE:
+    break;
   case LOENTITY_SUBCLASS_BULLET:
     itr->bullet = (loentity_bullet_t*) itr->entity;
     break;

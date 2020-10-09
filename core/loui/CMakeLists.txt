@@ -1,0 +1,19 @@
+add_library(loui
+  combat.c
+  event.c
+  hud.c
+  menu.c
+  popup.c
+  ui.c
+)
+target_link_libraries(loui
+  glyphas
+  math
+
+  lochara
+  locommon
+  loplayer
+  loresource
+  loshader
+  loworld
+)

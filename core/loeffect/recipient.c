@@ -16,20 +16,25 @@
 
 #include "./generic.h"
 
-#define LOEFFECT_RECIPIENT_EFFECT_PARAM_EACH_(PROC) do {  \
-  PROC(curse);  \
-} while (0)
-#define LOEFFECT_RECIPIENT_EFFECT_PARAM_COUNT 1
+/* generated serializer */
+#include "core/loeffect/crial/recipient.h"
+
+#define LOST_DAMAGE_AMOUNT_ .03f
+#define LOST_DAMAGE_PERIOD_ 1000
 
 void loeffect_recipient_initialize(
-    loeffect_recipient_t* recipient, const locommon_ticker_t* ticker) {
+    loeffect_recipient_t*              recipient,
+    const locommon_ticker_t*           ticker,
+    const loeffect_recipient_status_t* status) {
   assert(recipient != NULL);
   assert(ticker    != NULL);
 
   *recipient = (typeof(*recipient)) {
     .ticker  = ticker,
+    .madness = 1,
+    .faith   = 1,
   };
-  loeffect_recipient_reset(recipient);
+  if (status != NULL) recipient->status = *status;
 }
 
 void loeffect_recipient_deinitialize(loeffect_recipient_t* recipient) {
@@ -37,41 +42,72 @@ void loeffect_recipient_deinitialize(loeffect_recipient_t* recipient) {
 
 }
 
-void loeffect_recipient_reset(loeffect_recipient_t* recipient) {
-  assert(recipient != NULL);
-
-  recipient->madness = 1;
-  recipient->faith   = 1;
-
-  recipient->effects = (typeof(recipient->effects)) {0};
-}
-
 void loeffect_recipient_apply_effect(
     loeffect_recipient_t* recipient, const loeffect_t* effect) {
   assert(recipient != NULL);
   assert(effect    != NULL);
 
-  if (recipient->madness <= 0) return;
+  if (effect->id == LOEFFECT_ID_RESUSCITATE) {
+    recipient->madness = 1;
+    recipient->faith   = 1;
+    recipient->effects = (typeof(recipient->effects)) {0};
+    recipient->last_resuscitate = recipient->ticker->time;
+  }
+  if (!loeffect_recipient_is_alive(recipient)) return;
+
+  const float faith_backup = recipient->faith;
 
   switch (effect->id) {
-  case LOEFFECT_ID_IMMEDIATE_DAMAGE:
-    recipient->madness -=
-        effect->data.imm.amount * (1-recipient->status.defence);
-    recipient->last_damage = LOEFFECT_ID_IMMEDIATE_DAMAGE;
+  case LOEFFECT_ID_NONE:
+  case LOEFFECT_ID_RESUSCITATE:
     break;
-  case LOEFFECT_ID_CURSE:
-    recipient->effects.curse = effect->data.lasting;
+  case LOEFFECT_ID_LOST_DAMAGE:
+    recipient->madness -= LOST_DAMAGE_AMOUNT_;
     break;
   case LOEFFECT_ID_CURSE_TRIGGER:
     recipient->madness = 0;
-    recipient->last_damage = LOEFFECT_ID_CURSE;
+    break;
+  case LOEFFECT_ID_DAMAGE:
+    recipient->madness -=
+        effect->data.imm.amount * (1-recipient->status.defence);
+    recipient->last_damage = recipient->ticker->time;
+    break;
+  case LOEFFECT_ID_HEAL:
+    recipient->madness  += effect->data.imm.amount;
+    recipient->last_heal = recipient->ticker->time;
+    break;
+  case LOEFFECT_ID_LOST:
+    recipient->faith    -= effect->data.imm.amount;
+    recipient->last_lost = recipient->ticker->time;
+    break;
+  case LOEFFECT_ID_RETRIEVAL:
+    recipient->faith         += effect->data.imm.amount;
+    recipient->last_retrieval = recipient->ticker->time;
+    break;
+  case LOEFFECT_ID_FANATIC:
+    recipient->effects.fanatic       = effect->data.lasting;
+    recipient->effects.fanatic.start = recipient->ticker->time;
+    break;
+  case LOEFFECT_ID_CURSE:
+    recipient->effects.curse       = effect->data.lasting;
+    recipient->effects.curse.start = recipient->ticker->time;
     break;
   case LOEFFECT_ID_AMNESIA:
-    recipient->effects.amnesia = effect->data.lasting;
+    recipient->effects.amnesia       = effect->data.lasting;
+    recipient->effects.amnesia.start = recipient->ticker->time;
     break;
-  default:
-    ;
   }
+
+  if (!loeffect_recipient_is_alive(recipient)) {
+    recipient->last_die        = recipient->ticker->time;
+    recipient->last_die_reason = effect->id;
+  }
+  if (faith_backup > 0 && recipient->faith <= 0) {
+    recipient->lost_damage_since = recipient->ticker->time;
+  }
+
+  recipient->madness = MATH_CLAMP(recipient->madness, 0, 1);
+  recipient->faith   = MATH_CLAMP(recipient->faith,   0, 1);
 }
 
 void loeffect_recipient_update(
@@ -79,54 +115,57 @@ void loeffect_recipient_update(
   assert(recipient != NULL);
   assert(base      != NULL);
 
+  const uint64_t t  = recipient->ticker->time;
+  const uint64_t pt = recipient->ticker->prev_time;
+
   recipient->status = *base;
 
   if (recipient->madness > 0 && recipient->faith <= 0) {
-    recipient->madness     -= recipient->ticker->delta_f / 30;
-    recipient->last_damage  = LOEFFECT_ID_LOST;
+    const uint64_t since = recipient->lost_damage_since;
+    if (pt < since ||
+        (pt-since)/LOST_DAMAGE_PERIOD_ != (t-since)/LOST_DAMAGE_PERIOD_) {
+      loeffect_recipient_apply_effect(recipient, &loeffect_lost_damage());
+    }
   }
 
-  recipient->madness = MATH_CLAMP(recipient->madness, 0, 1);
-  recipient->faith   = MATH_CLAMP(recipient->faith,   0, 1);
+  const uint64_t fanatic_st = recipient->effects.fanatic.start;
+  const uint64_t fanatic_ed = fanatic_st + recipient->effects.fanatic.duration;
+  if (pt < fanatic_ed && fanatic_ed <= t && recipient->madness <= 0) {
+    recipient->last_die        = recipient->ticker->time;
+    recipient->last_die_reason = LOEFFECT_ID_FANATIC;
+  }
 }
 
-void loeffect_recipient_effect_param_pack(
-    const loeffect_recipient_effect_param_t* param,
-    msgpack_packer*                          packer) {
-  assert(param  != NULL);
-  assert(packer != NULL);
+bool loeffect_recipient_is_alive(const loeffect_recipient_t* recipient) {
+  assert(recipient != NULL);
 
-  msgpack_pack_map(packer, LOEFFECT_RECIPIENT_EFFECT_PARAM_COUNT);
+  if (recipient->madness > 0) return true;
 
-# define each_(name) do {  \
-    mpkutil_pack_str(packer, #name);  \
-    LOCOMMON_MSGPACK_PACK_ANY(packer, &param->name);  \
-  } while (0)
+  const uint64_t t = recipient->ticker->time;
 
-  LOEFFECT_RECIPIENT_EFFECT_PARAM_EACH_(each_);
+  const uint64_t fanatic_st = recipient->effects.fanatic.start;
+  const uint64_t fanatic_ed = fanatic_st + recipient->effects.fanatic.duration;
+  if (fanatic_st <= t && t < fanatic_ed) return true;
 
-# undef each_
+  return false;
 }
 
-bool loeffect_recipient_effect_param_unpack(
-    loeffect_recipient_effect_param_t* param, const msgpack_object* obj) {
-  assert(param != NULL);
+void loeffect_recipient_pack(
+    const loeffect_recipient_t* recipient, msgpack_packer* packer) {
+  assert(recipient != NULL);
+  assert(packer    != NULL);
 
-  if (obj == NULL) return false;
+  msgpack_pack_map(packer, CRIAL_PROPERTY_COUNT_);
+  CRIAL_SERIALIZER_;
+}
+
+bool loeffect_recipient_unpack(
+    loeffect_recipient_t* recipient, const msgpack_object* obj) {
+  assert(recipient != NULL);
 
   const msgpack_object_map* root = mpkutil_get_map(obj);
+  if (root == NULL) return false;
 
-# define item_(v) mpkutil_get_map_item_by_str(root, v)
-
-# define each_(name) do {  \
-    if (!LOCOMMON_MSGPACK_UNPACK_ANY(item_(#name), &param->name)) {  \
-      param->name = (typeof(param->name)) {0};  \
-    }  \
-  } while (0)
-
-  LOEFFECT_RECIPIENT_EFFECT_PARAM_EACH_(each_);
-
-# undef each_
-# undef item_
+  CRIAL_DESERIALIZER_;
   return true;
 }

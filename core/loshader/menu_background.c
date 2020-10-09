@@ -1,36 +1,30 @@
 #include "./menu_background.h"
 
 #include <assert.h>
-
-#include <GL/glew.h>
+#include <stddef.h>
 
 #include "util/gleasy/program.h"
 #include "util/math/algorithm.h"
-#include "util/memory/memory.h"
 
+#include "./single.h"
 #include "./uniblock.h"
 
 /* resources */
-#include "anysrc/header.shader.h"
-#include "anysrc/menu_background.vshader.h"
-#include "anysrc/menu_background.fshader.h"
+#include "core/loshader/anysrc/header.shader.h"
+#include "core/loshader/anysrc/menu_background.vshader.h"
+#include "core/loshader/anysrc/menu_background.fshader.h"
 
-#define LOSHADER_MENU_BACKGROUND_UNIFORM_ALPHA 0
+#define UNIFORM_ALPHA_ 0
 
-struct loshader_menu_background_drawer_t {
-  const loshader_menu_background_program_t* prog;
-  const loshader_uniblock_t*                uniblock;
+#define PRIMITIVE_COUNT_ 6
 
-  float alpha;
-};
+void loshader_menu_background_drawer_initialize(
+    loshader_menu_background_drawer_t* drawer,
+    const loshader_uniblock_t*         uniblock) {
+  assert(drawer   != NULL);
+  assert(uniblock != NULL);
 
-#define LOSHADER_MENU_BACKGROUND_UNIBLOCK_INDEX 0
-
-void loshader_menu_background_program_initialize(
-    loshader_menu_background_program_t* prog) {
-  assert(prog != NULL);
-
-  *prog = gleasy_program_new(
+  const gleasy_program_t prog = gleasy_program_new(
       loshader_header_shader_,
       sizeof(loshader_header_shader_),
       loshader_menu_background_vshader_,
@@ -38,60 +32,19 @@ void loshader_menu_background_program_initialize(
       loshader_menu_background_fshader_,
       sizeof(loshader_menu_background_fshader_));
 
-  const GLuint uniblock = glGetUniformBlockIndex(*prog, "uniblock");
-  assert(glGetError() == GL_NO_ERROR);
-  glUniformBlockBinding(
-      *prog, uniblock, LOSHADER_MENU_BACKGROUND_UNIBLOCK_INDEX);
-}
-
-void loshader_menu_background_program_deinitialize(
-    loshader_menu_background_program_t* prog) {
-  assert(prog != NULL);
-
-  glDeleteProgram(*prog);
-}
-
-loshader_menu_background_drawer_t* loshader_menu_background_drawer_new(
-    const loshader_menu_background_program_t* prog,
-    const loshader_uniblock_t*                uniblock) {
-  assert(prog     != NULL);
-  assert(uniblock != NULL);
-
-  loshader_menu_background_drawer_t* drawer = memory_new(sizeof(*drawer));
-  *drawer = (typeof(*drawer)) {
-    .prog     = prog,
-    .uniblock = uniblock,
-  };
-  return drawer;
-}
-
-void loshader_menu_background_drawer_delete(
-    loshader_menu_background_drawer_t* drawer) {
-  if (drawer == NULL) return;
-
-  memory_delete(drawer);
-}
-
-void loshader_menu_background_drawer_set_alpha(
-    loshader_menu_background_drawer_t* drawer, float alpha) {
-  assert(drawer != NULL);
-  assert(MATH_FLOAT_VALID(alpha));
-
-  drawer->alpha = alpha;
+  loshader_single_drawer_initialize(&drawer->super, prog, uniblock, 0);
 }
 
 void loshader_menu_background_drawer_draw(
     const loshader_menu_background_drawer_t* drawer) {
   assert(drawer != NULL);
+  assert(MATH_FLOAT_VALID(drawer->alpha));
 
   if (drawer->alpha == 0) return;
 
-  glUseProgram(*drawer->prog);
+  glUseProgram(drawer->super.prog);
+  glUniform1f(UNIFORM_ALPHA_, drawer->alpha);
 
-  loshader_uniblock_bind(
-      drawer->uniblock, LOSHADER_MENU_BACKGROUND_UNIBLOCK_INDEX);
-
-  glUniform1f(LOSHADER_MENU_BACKGROUND_UNIFORM_ALPHA, drawer->alpha);
-
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  loshader_single_drawer_draw_without_use_program(
+      &drawer->super, PRIMITIVE_COUNT_);
 }

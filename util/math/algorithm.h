@@ -14,7 +14,8 @@
 
 #define MATH_CLAMP(x, min, max) ((x) < (min)? (min): (x) > (max)? (max): (x))
 
-#define MATH_SIGN(a) (a < 0? -1: a > 0? 1: 0)
+#define MATH_SIGN(a)        (a < 0? -1: a > 0? 1: 0)
+#define MATH_SIGN_NOZERO(a) (a < 0? -1: 1)
 
 #define MATH_FLOAT_EQUAL(a, b) (MATH_ABS((a) - (b)) < MATH_EPSILON)
 #define MATH_FLOAT_VALID(a) (!isnan(a) && !isinf(a))

@@ -2,14 +2,12 @@
 
 #include <stddef.h>
 
-#include "util/gleasy/program.h"
-
+#include "./single.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_backwall_program_t;
-
-struct loshader_backwall_drawer_t;
-typedef struct loshader_backwall_drawer_t loshader_backwall_drawer_t;
+typedef struct {
+  loshader_single_drawer_t super;
+} loshader_backwall_drawer_t;
 
 typedef enum {
   LOSHADER_BACKWALL_TYPE_WHITE                = 0,
@@ -28,25 +26,13 @@ typedef struct {
 } loshader_backwall_drawer_param_t;
 
 void
-loshader_backwall_program_initialize(
-    loshader_backwall_program_t* prog
+loshader_backwall_drawer_initialize(
+    loshader_backwall_drawer_t* drawer,
+    const loshader_uniblock_t*  uniblock
 );
 
-void
-loshader_backwall_program_deinitialize(
-    loshader_backwall_program_t* prog
-);
-
-loshader_backwall_drawer_t*
-loshader_backwall_drawer_new(
-    const loshader_backwall_program_t* prog,
-    const loshader_uniblock_t*         uniblock
-);
-
-void
-loshader_backwall_drawer_delete(
-    loshader_backwall_drawer_t* drawer
-);
+#define loshader_backwall_drawer_deinitialize(drawer)  \
+    loshader_single_drawer_deinitialize(&(drawer)->super)
 
 void
 loshader_backwall_drawer_set_param(

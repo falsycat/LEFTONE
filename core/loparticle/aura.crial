@@ -1,0 +1,13 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &param->$code);
+  END
+  DESERIALIZER_BEGIN
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &param->$code)) {
+      return false;
+    }
+  END
+  PROPERTY target
+*/

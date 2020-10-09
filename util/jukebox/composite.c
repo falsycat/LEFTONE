@@ -49,7 +49,7 @@ static void jukebox_composite_affect_(
       jukebox_effect_affect(c->effects[i], &chunk_pcm);
     }
 
-    const size_t len = chunk_pcm.frames * channels;
+    const size_t len = (size_t) chunk_pcm.frames*channels;
     const float* src = chunk;
     float*       dst = pcm->ptr + read * channels;
     for (uint64_t i = 0; i < len; ++i) {

@@ -1,49 +1,38 @@
 #pragma once
 
-#include <stddef.h>
-
 #include "util/gleasy/framebuffer.h"
-#include "util/gleasy/program.h"
 
+#include "./single.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_posteffect_program_t;
-
-struct loshader_posteffect_drawer_t;
-typedef struct loshader_posteffect_drawer_t loshader_posteffect_drawer_t;
+typedef struct {
+  loshader_single_drawer_t    super;
+  const gleasy_framebuffer_t* fb;
+} loshader_posteffect_drawer_t;
 
 typedef struct {
-  float whole_blur;
-  float raster;
+  /* distortion effect */
+  float distortion_amnesia;
+  float distortion_radial;
+  float distortion_urgent;
+  float raster_whole;
 
-  float radial_displacement;
-  float amnesia_displacement;
-  float radial_fade;
-
-  float brightness;
+  /* color effect */
+  float aberration_radial;
+  float blur_whole;
+  float brightness_whole;
+  float fade_radial;
 } loshader_posteffect_drawer_param_t;
 
 void
-loshader_posteffect_program_initialize(
-    loshader_posteffect_program_t* prog
+loshader_posteffect_drawer_initialize(
+    loshader_posteffect_drawer_t* drawer,
+    const loshader_uniblock_t*    uniblock,
+    const gleasy_framebuffer_t*   fb
 );
 
-void
-loshader_posteffect_program_deinitialize(
-    loshader_posteffect_program_t* prog
-);
-
-loshader_posteffect_drawer_t*  /* OWNERSHIP */
-loshader_posteffect_drawer_new(
-    const loshader_posteffect_program_t* prog,
-    const loshader_uniblock_t*           uniblock,
-    const gleasy_framebuffer_t*          fb
-);
-
-void
-loshader_posteffect_drawer_delete(
-    loshader_posteffect_drawer_t* drawer  /* OWNERSHIP */
-);
+#define loshader_posteffect_drawer_deinitialize(drawer)  \
+    loshader_single_drawer_deinitialize(&(drawer)->super)
 
 void
 loshader_posteffect_drawer_set_param(

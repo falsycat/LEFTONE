@@ -50,7 +50,8 @@ static void gleasy_atlas_resize_bitmap_(
   const size_t pixel = type*fmt;
   assert(pixel > 0);
 
-  container_array_resize(atlas->resize_buffer, out->width*out->height*pixel);
+  container_array_resize(
+      atlas->resize_buffer, (size_t) out->width*out->height*pixel);
   out->buffer = atlas->resize_buffer;
 
   const int32_t ymax = out->height * pixel;
@@ -128,7 +129,7 @@ gleasy_atlas_t* gleasy_atlas_new(
 
   assert(glGetError() == GL_NO_ERROR);
 
-  container_array_reserve(atlas->resize_buffer, width*height*4);
+  container_array_reserve(atlas->resize_buffer, (size_t) width*height*4);
   return atlas;
 }
 

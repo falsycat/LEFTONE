@@ -10,7 +10,7 @@ typedef struct {
 } loeffect_generic_immediate_param_t;
 
 typedef struct {
-  uint64_t begin;
+  uint64_t start;
   uint64_t duration;
   float    amount;
 } loeffect_generic_lasting_param_t;

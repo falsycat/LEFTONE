@@ -28,8 +28,8 @@ typedef struct {
   gleasy_atlas_t*  atlas;
   glyphas_cache_t* cache;
 
-  gleasy_program_t  prog;
-  glyphas_drawer_t* drawer;
+  gleasy_program_t prog;
+  glyphas_drawer_t drawer;
 } context_t;
 
 #define SCALE 0.01f
@@ -56,8 +56,8 @@ static void align_text_(context_t* ctx, const char* str) {
   static const vec2_t origin = vec2(.5f, -.5f);
   glyphas_block_set_origin(block, &origin);
 
-  glyphas_drawer_clear(ctx->drawer, gleasy_atlas_get_texture(ctx->atlas), len);
-  glyphas_drawer_add_block(ctx->drawer, block);
+  glyphas_drawer_clear(&ctx->drawer, len);
+  glyphas_drawer_add_block(&ctx->drawer, block);
   glyphas_block_delete(block);
 }
 
@@ -72,8 +72,8 @@ static void initialize_(context_t* ctx, const char* path, const char* str) {
   ctx->atlas = gleasy_atlas_new(GL_RED, 256, 256, false  /* anti-alias */);
   ctx->cache = glyphas_cache_new(ctx->atlas, &ctx->face, 16, 16);
 
-  ctx->prog   = glyphas_drawer_create_default_program();
-  ctx->drawer = glyphas_drawer_new();
+  ctx->prog = glyphas_drawer_create_default_program();
+  glyphas_drawer_initialize(&ctx->drawer, gleasy_atlas_get_texture(ctx->atlas));
   assert(glGetError() == GL_NO_ERROR);
 
   align_text_(ctx, str);
@@ -87,13 +87,13 @@ static void draw_(const context_t* ctx) {
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glUseProgram(ctx->prog);
-  glyphas_drawer_draw(ctx->drawer);
+  glyphas_drawer_draw(&ctx->drawer);
 }
 
 static void deinitialize_(context_t* ctx) {
   assert(ctx != NULL);
 
-  glyphas_drawer_delete(ctx->drawer);
+  glyphas_drawer_deinitialize(&ctx->drawer);
   glDeleteProgram(ctx->prog);
 
   glyphas_cache_delete(ctx->cache);

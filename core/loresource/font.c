@@ -7,8 +7,8 @@
 #include "util/glyphas/face.h"
 
 /* resources */
-#include "anysrc/font/sans.woff.h"
-#include "anysrc/font/serif.woff.h"
+#include "core/loresource/anysrc/font/sans.woff.h"
+#include "core/loresource/anysrc/font/serif.woff.h"
 
 void loresource_font_initialize(loresource_font_t* font) {
   assert(font != NULL);

@@ -18,23 +18,21 @@
 #include "util/mpkutil/get.h"
 #include "util/mpkutil/pack.h"
 
-#include "core/lobullet/pool.h"
-#include "core/locharacter/pool.h"
+#include "core/lochara/pool.h"
+#include "core/lochara/player.h"
 #include "core/locommon/counter.h"
+#include "core/locommon/screen.h"
 #include "core/locommon/ticker.h"
 #include "core/loentity/store.h"
-#include "core/loground/pool.h"
-#include "core/loplayer/camera.h"
 #include "core/loplayer/player.h"
-#include "core/loresource/set.h"
-#include "core/loshader/set.h"
+#include "core/loui/ui.h"
 #include "core/loworld/environment.h"
 #include "core/loworld/generator.h"
 #include "core/loworld/poolset.h"
 #include "core/loworld/store.h"
-#include "core/loworld/template.h"
 #include "core/loworld/view.h"
 
+#include "./context.h"
 #include "./param.h"
 #include "./scene.h"
 #include "./title.h"
@@ -42,10 +40,7 @@
 typedef struct {
   loscene_t header;
 
-  const loscene_param_t*   param;
-  const locommon_ticker_t* app_ticker;
-  loresource_set_t*        res;
-  loshader_set_t*          shaders;
+  loscene_context_t* ctx;
 
   uint64_t app_begin_time;
   uint64_t begin_time;
@@ -54,7 +49,6 @@ typedef struct {
   locommon_ticker_t  ticker;
 
   loentity_store_t* entities;
-
   loplayer_t        player;
   loworld_poolset_t pools;
 
@@ -63,42 +57,21 @@ typedef struct {
   loworld_view_t*       view;
   loworld_environment_t environment;
 
-  /* temporary parameters */
+  loui_t ui;
+
   bool   updated;
   mat4_t proj;
+  mat4_t camera;
 } loscene_game_t;
 
-#define LOSCENE_GAME_MAX_DELTA_TIME 500
+#define MAX_DELTA_TIME_ 500
 
-#define LOSCENE_GAME_SCALE 4.0f
+#define ENTITY_STORE_RESERVE_      256
+#define WORLD_STORE_CHUNK_RESERVE_ 64
 
-#define LOSCENE_GAME_ENTITY_STORE_RESERVE      256
-#define LOSCENE_GAME_WORLD_STORE_CHUNK_RESERVE 64
-#define LOSCENE_GAME_BULLETS_PER_CHUNK         64
-
-#define LOSCENE_GAME_DATA_BASEPATH "./data/"
-
-#define LOSCENE_GAME_DATA_FILE_PATH  \
-    (LOSCENE_GAME_DATA_BASEPATH"game.msgpack")
-#define LOSCENE_GAME_WORLD_STORE_BASEPATH  \
-    (LOSCENE_GAME_DATA_BASEPATH"world/")
-
-static void loscene_game_build_projection_matrix_(loscene_game_t* s) {
-  assert(s != NULL);
-
-  static const float chunk_inch = 16;
-  static const float max_scale  = 1/.5f;
-
-  float yscale = s->shaders->dpi.y*chunk_inch/s->shaders->resolution.y*2;
-  float xscale = s->shaders->dpi.x*chunk_inch/s->shaders->resolution.x*2;
-
-  if (xscale > max_scale) {
-    yscale *= max_scale/xscale;
-    xscale  = max_scale;
-  }
-
-  s->proj = mat4_scale(xscale, yscale, 1);
-}
+#define DATA_BASEPATH_        "./data/"
+#define DATA_FILE_PATH_       DATA_BASEPATH_"game.msgpack"
+#define WORLD_STORE_BASEPATH_ DATA_BASEPATH_"world/"
 
 static void loscene_game_convert_viewport_pos_to_chunk_pos_(
     loscene_game_t* s, locommon_position_t* pos, const vec2_t* vpos) {
@@ -106,7 +79,7 @@ static void loscene_game_convert_viewport_pos_to_chunk_pos_(
   assert(locommon_position_valid(pos));
 
   mat4_t m, inv;
-  mat4_mul(&m, &s->proj, &s->player.camera.matrix);
+  mat4_mul(&m, &s->proj, &mat4_identity());
   mat4_inv(&inv, &m);
 
   vec4_t disp4;
@@ -117,9 +90,8 @@ static void loscene_game_convert_viewport_pos_to_chunk_pos_(
   locommon_position_reduce(pos);
 }
 
-static bool loscene_game_load_(loscene_game_t* scene) {
-  assert(scene != NULL);
-  /* ! Please note that world and view objects may be invalid now. ! */
+static bool loscene_game_load_(loscene_game_t* s) {
+  assert(s != NULL);
 
   bool ret = false;
 
@@ -129,7 +101,7 @@ static bool loscene_game_load_(loscene_game_t* scene) {
   msgpack_unpacked unpacked;
   msgpack_unpacked_init(&unpacked);
 
-  FILE* fp = fopen(LOSCENE_GAME_DATA_FILE_PATH, "rb");
+  FILE* fp = fopen(DATA_FILE_PATH_, "rb");
   if (fp == NULL) goto FINALIZE;
 
   const bool loaded =
@@ -141,10 +113,22 @@ static bool loscene_game_load_(loscene_game_t* scene) {
 
 # define item_(v) mpkutil_get_map_item_by_str(root, v)
 
-  if (!loplayer_unpack(&scene->player, item_("player")) ||
-      !loworld_generator_unpack(scene->generator, item_("generator")) ||
-      !locommon_ticker_unpack(&scene->ticker, item_("ticker")) ||
-      !locommon_counter_unpack(&scene->idgen, item_("idgen"))) {
+  const msgpack_object* player = item_("player");
+  s->player.entity = lochara_pool_unpack_item(
+      s->pools.chara,
+      mpkutil_get_map_item_by_str(mpkutil_get_map(player), "entity"));
+  if (s->player.entity == NULL) goto FINALIZE;
+
+  if (s->player.entity->param.type != LOCHARA_TYPE_PLAYER) {
+    loentity_delete(&s->player.entity->super.super);
+    s->player.entity = NULL;
+    goto FINALIZE;
+  }
+
+  if (!loplayer_unpack(&s->player, player) ||
+      !loworld_generator_unpack(s->generator, item_("generator")) ||
+      !locommon_ticker_unpack(&s->ticker, item_("ticker")) ||
+      !locommon_counter_unpack(&s->idgen, item_("idgen"))) {
     goto FINALIZE;
   }
 
@@ -155,7 +139,7 @@ FINALIZE:
   msgpack_unpacked_destroy(&unpacked);
   msgpack_unpacker_destroy(&unpacker);
 
-  scene->begin_time = scene->ticker.time;
+  s->begin_time = s->ticker.time;
   return ret;
 }
 
@@ -167,7 +151,7 @@ static bool loscene_game_save_(loscene_game_t* scene) {
   loworld_view_flush_store(scene->view);
   if (loworld_store_is_error_happened(scene->world)) ret = false;
 
-  FILE* fp = fopen(LOSCENE_GAME_DATA_FILE_PATH, "wb");
+  FILE* fp = fopen(DATA_FILE_PATH_, "wb");
   if (fp == NULL) return false;
 
   msgpack_packer pk;
@@ -199,19 +183,16 @@ static void loscene_game_delete_(loscene_t* scene) {
     fprintf(stderr, "failed to save game data\n");
   }
 
+  loui_deinitialize(&s->ui);
+
   loworld_environment_deinitialize(&s->environment);
   loworld_view_delete(s->view);
   loworld_store_delete(s->world);
   loworld_generator_delete(s->generator);
 
   loentity_store_clear(s->entities);
-
-  locharacter_pool_delete(s->pools.character);
+  loworld_poolset_deinitialize(&s->pools);
   loplayer_deinitialize(&s->player);
-
-  lobullet_pool_delete(s->pools.bullet);
-  loground_pool_delete(s->pools.ground);
-
   loentity_store_delete(s->entities);
 
   locommon_ticker_deinitialize(&s->ticker);
@@ -228,25 +209,33 @@ static loscene_t* loscene_game_update_(
   loscene_game_t* s = (typeof(s)) scene;
   s->updated = false;
 
-  const uint64_t t = s->app_ticker->time - s->app_begin_time + s->begin_time;
+  const uint64_t t =
+      s->ctx->ticker.time - s->app_begin_time + s->begin_time;
   locommon_ticker_tick(&s->ticker, t);
-  if (s->ticker.delta > LOSCENE_GAME_MAX_DELTA_TIME) {
+  if (s->ticker.delta > MAX_DELTA_TIME_) {
     fprintf(stderr, "1 tick took too long (%"PRId64" ms)\n", s->ticker.delta);
     return scene;
   }
 
+  s->player.camera.base_brightness = s->ctx->param.brightness;
+  loplayer_camera_build_matrix(&s->player.camera, &s->camera);
+
   locommon_position_t cursor = s->player.camera.pos;
   loscene_game_convert_viewport_pos_to_chunk_pos_(s, &cursor, &input->cursor);
 
-  loplayer_update(&s->player, input, &cursor);
-  if (loplayer_menu_is_exit_requested(s->player.menu)) {
-    return loscene_title_new(s->param, s->res, s->shaders, s->app_ticker);
-  }
+  const bool grabbed = loui_is_grabbing_input(&s->ui);
+  loplayer_update(
+      &s->player,
+      grabbed? NULL: input,
+      grabbed? NULL: &cursor);
 
   loworld_view_look(s->view, &s->player.camera.pos);
   loworld_view_update(s->view);
 
   loworld_environment_update(&s->environment);
+
+  loui_update(&s->ui, input);
+  if (s->ui.menu.request_exit) return loscene_title_new(s->ctx);
 
   s->updated = true;
   return scene;
@@ -258,51 +247,42 @@ static void loscene_game_draw_(loscene_t* scene) {
   loscene_game_t* s = (typeof(s)) scene;
   if (!s->updated) return;
 
-  const loshader_uniblock_param_t p = {
-    .proj = s->proj,
-    .cam  = s->player.camera.matrix,
-    .pos  = s->player.camera.pos,
-    .time = s->ticker.time%60000/1000.0f,
-  };
-  loshader_uniblock_update_param(s->shaders->uniblock, &p);
+  loshader_posteffect_drawer_set_param(
+      &s->ctx->shaders.drawer.posteffect,
+      &(loshader_posteffect_drawer_param_t) { .brightness_whole = 1, });
 
-  loshader_set_clear_all(s->shaders);
+  loshader_uniblock_update_param(
+      &s->ctx->shaders.uniblock,
+      &(loshader_uniblock_param_t) {
+        .proj = s->proj,
+        .cam  = s->camera,
+        .pos  = s->player.camera.pos,
+        .time = s->ticker.time%60000/1000.f,
+      });
+
+  loshader_set_clear_all(&s->ctx->shaders);
+
+  s->ctx->shaders.drawer.pixsort.intensity = s->player.camera.pixsort;
+  loshader_posteffect_drawer_set_param(
+      &s->ctx->shaders.drawer.posteffect, &s->player.camera.posteffect);
 
   loworld_environment_draw(&s->environment);
   loworld_view_draw(s->view);
-  loplayer_draw(&s->player);
 
-  loshader_set_draw_all(s->shaders);
-}
+  loui_draw(&s->ui);
 
-static void loscene_game_execute_tests_(
-    const loscene_game_t* scene, const loscene_param_t* param) {
-  assert(scene != NULL);
-  assert(param != NULL);
-
-  if (param->test.loworld_poolset_packing) {
-    loworld_poolset_test_packing(&scene->pools);
-  }
-  if (param->test.loplayer_packing) {
-    loplayer_test_packing(&scene->player);
-  }
+  loshader_set_draw_all(&s->ctx->shaders);
 }
 
 loscene_t* loscene_game_new(
-    const loscene_param_t*   param,
-    loresource_set_t*        res,
-    loshader_set_t*          shaders,
-    const locommon_ticker_t* ticker,
-    bool                     load) {
-  assert(param   != NULL);
-  assert(shaders != NULL);
-  assert(res     != NULL);
-  assert(ticker  != NULL);
+    loscene_context_t* ctx,
+    bool               load) {
+  assert(ctx != NULL);
 
-  loshader_set_drop_cache(shaders);
+  loshader_set_drop_cache(&ctx->shaders);
 
-  loscene_game_t* scene = memory_new(sizeof(*scene));
-  *scene = (typeof(*scene)) {
+  loscene_game_t* s = memory_new(sizeof(*s));
+  *s = (typeof(*s)) {
     .header = {
       .vtable = {
         .delete = loscene_game_delete_,
@@ -310,89 +290,80 @@ loscene_t* loscene_game_new(
         .draw   = loscene_game_draw_,
       },
     },
-    .param          = param,
-    .app_ticker     = ticker,
-    .res            = res,
-    .shaders        = shaders,
-    .app_begin_time = ticker->time,
+    .ctx            = ctx,
+    .app_begin_time = ctx->ticker.time,
   };
-  loscene_game_build_projection_matrix_(scene);
+  locommon_screen_build_projection_matrix(&s->ctx->screen, &s->proj);
 
-  locommon_counter_initialize(&scene->idgen, 0);
-  locommon_ticker_initialize(&scene->ticker, 0);
+  locommon_counter_initialize(&s->idgen, 0);
+  locommon_ticker_initialize(&s->ticker, 0);
 
-  scene->entities = loentity_store_new(
-      LOSCENE_GAME_ENTITY_STORE_RESERVE);
-
-  scene->pools.ground = loground_pool_new(
-      scene->shaders->drawer.ground,
-      &scene->idgen,
-      LOSCENE_GAME_WORLD_STORE_CHUNK_RESERVE*
-          LOWORLD_TEMPLATE_MAX_CHARACTERS_PER_CHUNK);
-
-  scene->pools.bullet = lobullet_pool_new(
-      res,
-      scene->shaders->drawer.bullet,
-      &scene->idgen,
-      &scene->ticker,
-      scene->entities,
-      LOSCENE_GAME_WORLD_STORE_CHUNK_RESERVE*
-          LOSCENE_GAME_BULLETS_PER_CHUNK);
+  s->entities = loentity_store_new(ENTITY_STORE_RESERVE_);
 
   loplayer_initialize(
-      &scene->player,
-      locommon_counter_count(&scene->idgen),  /* = Absolutely 0 */
-      res,
-      scene->shaders,
-      &scene->ticker,
-      scene->pools.bullet,
-      scene->entities,
-      &scene->proj);
-  scene->player.camera.brightness = param->brightness/1000.f;
+      &s->player,
+      &s->ctx->screen,
+      &s->ticker,
+      s->entities);
 
-  scene->pools.character = locharacter_pool_new(
-      res,
-      scene->shaders->drawer.character,
-      &scene->idgen,
-      &scene->ticker,
-      scene->pools.bullet,
-      scene->entities,
-      &scene->player,
-      LOSCENE_GAME_WORLD_STORE_CHUNK_RESERVE*
-          LOWORLD_TEMPLATE_MAX_CHARACTERS_PER_CHUNK);
+  loworld_poolset_initialize(
+      &s->pools,
+      &s->ctx->resources,
+      &s->ctx->shaders,
+      &s->idgen,
+      &s->ticker,
+      s->entities,
+      &s->player,
+      WORLD_STORE_CHUNK_RESERVE_);
 
-  scene->generator = loworld_generator_new(
-      &scene->pools,
-      scene->app_ticker->time*98641  /* = prime number */);
+  /* id is always 0 */
+
+  s->generator = loworld_generator_new(
+      &s->pools,
+      s->ctx->ticker.time*98641  /* = prime number */);
 
   if (load) {
-    if (!loscene_game_load_(scene)) {
-      fprintf(stderr, "failed to load game data\n");
-    }
+    load = loscene_game_load_(s);
+    if (!load) fprintf(stderr, "failed to load game data\n");
   }
+  if (!load) {
+    locommon_counter_reset(&s->idgen);
+    s->player.entity = lochara_pool_create(s->pools.chara);
+    lochara_player_build(s->player.entity);
+  }
+  s->player.entity->super.super.dont_save = true;
+  loentity_store_add(s->entities, &s->player.entity->super.super);
 
-  scene->world = loworld_store_new(
-      &scene->pools,
-      scene->generator,
-      LOSCENE_GAME_WORLD_STORE_CHUNK_RESERVE,
-      LOSCENE_GAME_WORLD_STORE_BASEPATH,
-      strlen(LOSCENE_GAME_WORLD_STORE_BASEPATH));
+  s->world = loworld_store_new(
+      s->ctx->flasy,
+      &s->pools,
+      s->generator,
+      WORLD_STORE_CHUNK_RESERVE_,
+      WORLD_STORE_BASEPATH_,
+      strlen(WORLD_STORE_BASEPATH_));
 
-  scene->view = loworld_view_new(
-      scene->world,
-      scene->entities,
-      &scene->player.camera.pos);
+  s->view = loworld_view_new(
+      s->world,
+      s->entities,
+      &locommon_position(0, 0, vec2(.5f, .5f)));
 
   loworld_environment_initialize(
-      &scene->environment,
-      res,
-      scene->shaders,
-      &scene->ticker,
-      scene->view,
-      &scene->player,
-      &param->environment);
+      &s->environment,
+      &s->ctx->resources,
+      &s->ctx->shaders,
+      &s->ticker,
+      &s->player,
+      s->view,
+      &s->ctx->param.environment);
 
-  loscene_game_execute_tests_(scene, param);
+  loui_initialize(
+      &s->ui,
+      &s->ctx->resources,
+      &s->ctx->shaders,
+      &s->ctx->screen,
+      &s->ticker,
+      &s->player,
+      s->view);
 
-  return &scene->header;
+  return &s->header;
 }

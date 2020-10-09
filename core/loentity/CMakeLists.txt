@@ -13,4 +13,5 @@ target_link_libraries(loentity
   memory
 
   locommon
+  loeffect
 )

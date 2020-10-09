@@ -7,7 +7,7 @@
 #include "core/locommon/position.h"
 
 #include "./base.h"
-#include "./misc.h"
+#include "./type.h"
 
 bool loground_island_update(loground_base_t* base) {
   assert(base != NULL);
@@ -28,7 +28,9 @@ void loground_island_build(
   assert(vec2_valid(size));
   assert(size->x >= 0 && size->y >= 0);
 
-  base->type = LOGROUND_TYPE_ISLAND;
+  base->param = (typeof(base->param)) {
+    .type = LOGROUND_TYPE_ISLAND,
+  };
 
   base->super.super.pos = *pos;
   base->super.size      = *size;

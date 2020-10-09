@@ -32,7 +32,7 @@ static void jukebox_delay_affect_(
   jukebox_delay_t* d = (typeof(d)) effect;
 
   const int32_t ch     = d->format.channels;
-  const size_t  pcmlen = pcm->frames*ch;
+  const size_t  pcmlen = (size_t) pcm->frames*ch;
 
   for (size_t i = 0; i < pcmlen; ++i) {
     float* bufoff = &d->buffer[d->offset];

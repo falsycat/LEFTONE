@@ -15,19 +15,29 @@ static dictres_item_t loresource_text_jp_[] = {
   {"biome_boss_big_warder",       u8"巨頭の看守"},
   {"biome_boss_greedy_scientist", u8"貪欲な科学者"},
 
-  {"boss_big_warder_line0", u8"知能すら持たぬ家畜に踏み殺された仲間たちへの哀れみは"},
-  {"boss_big_warder_line1", u8"いまや羨望へとその形を変えた"},
+  {"boss_big_warder_line0",     u8"知能すら持たぬ家畜に踏み殺された仲間たちへの哀れみは"},
+  {"boss_big_warder_line1",     u8"いまや羨望へとその形を変えた"},
+  {"boss_big_warder_kill_line", u8"私はまだ待たなければならいのか"},
 
   {"boss_greedy_scientist_line0", u8"その選択はお前自身のものか？"},
   {"boss_greedy_scientist_line1", u8"胸を張ってそうだと，私達の前で言えるのか？"},
 
-  {"boss_theists_child_line0", u8"全ては計画通りだった"},
-  {"boss_theists_child_line1", u8"しかし空論は未だ宙に浮いたまま"},
-  {"boss_theists_child_line2", u8"それが\"創造主\"の意志だというのか"},
+  {"boss_theists_child_line0",      u8"全ては計画通りだった"},
+  {"boss_theists_child_line1",      u8"しかし空論は未だ宙に浮いたまま"},
+  {"boss_theists_child_line2",      u8"それが\"創造主\"の意志だというのか"},
+  {"boss_theists_child_dead_line",  u8"またか，また，私は失敗したのか"},
+  {"boss_theists_child_kill_line0", u8"私の邪魔をしないでくれ"},
+  {"boss_theists_child_kill_line1", u8"承けた使命を果たさなきゃならない"},
 
   {"effect_curse",   u8"呪縛"},
   {"effect_amnesia", u8"忘却"},
   {"effect_lost",    u8"喪失"},
+
+  {"popup_new_stance_head", u8"NEW STANCE FOUND"},
+
+  {"stance_unknown_name", u8"???"},
+  {"stance_unknown_desc", u8"???"},
+  {"stance_unknown_note", u8"???"},
 
   {"stance_missionary_name", u8"宣教師"},
   {"stance_missionary_desc",
@@ -57,11 +67,14 @@ static dictres_item_t loresource_text_jp_[] = {
   {"stance_unfinisher_name", u8"未完走者"},
   {"stance_unfinisher_desc",
       u8"  幾度締め上げようと再生する細胞は永遠への敬遠と共に能力をもたらす．\n\n"
-      u8"    - 信仰が50%以上残っている場合にあなたの狂気は徐々に回復する．\n"
-      u8"    - 信仰をすべて失ったとき，狂気の減少速度が増加する．"},
+      u8"    - 信仰が50%以上残っている場合にあなたの狂気は徐々に回復する．"},
   {"stance_unfinisher_note",
       u8"「忌々しい奴らに殺された仲間たちを，昔は気の毒だと思っていたよ．"
       u8"今は妬みしか感じない．」"},
+
+  {"stance_betrayer_name", u8"背信者"},
+  {"stance_betrayer_desc", u8"NOT IMPLEMENTED"},
+  {"stance_betrayer_note", u8"NOT IMPLEMENTED"},
 
   {"menu_exit", "EXIT"},
 

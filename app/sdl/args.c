@@ -75,9 +75,6 @@ void app_args_parse(app_args_t* args, int argc, char** argv) {
 
     bool_("skip-title", args->scene.skip_title);
 
-    bool_("test-poolset-packing", args->scene.test.loworld_poolset_packing);
-    bool_("test-player-packing",  args->scene.test.loplayer_packing);
-
     /* ---- app parameters ---- */
     int_("max-fps", args->max_fps, 1, INT32_MAX);
 

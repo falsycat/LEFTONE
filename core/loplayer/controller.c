@@ -1,16 +1,22 @@
 #include "./controller.h"
 
 #include <assert.h>
-#include <stdbool.h>
 #include <stddef.h>
 
 #include "core/locommon/input.h"
 #include "core/locommon/position.h"
+#include "core/locommon/ticker.h"
 
-void loplayer_controller_initialize(loplayer_controller_t* controller) {
+#define DODGE_PRESS_MAX_DURATION_ 300
+
+void loplayer_controller_initialize(
+    loplayer_controller_t* controller, const locommon_ticker_t* ticker) {
   assert(controller != NULL);
+  assert(ticker     != NULL);
 
-  *controller = (typeof(*controller)) {0};
+  *controller = (typeof(*controller)) {
+    .ticker = ticker,
+  };
 }
 
 void loplayer_controller_deinitialize(loplayer_controller_t* controller) {
@@ -18,62 +24,68 @@ void loplayer_controller_deinitialize(loplayer_controller_t* controller) {
 
 }
 
-void loplayer_controller_update(
+void loplayer_controller_handle_input(
     loplayer_controller_t*     controller,
     const locommon_input_t*    input,
     const locommon_position_t* cursor) {
   assert(controller != NULL);
-  assert(input      != NULL);
-  assert(locommon_position_valid(cursor));
 
-  controller->looking = *cursor;
-  controller->cursor  = input->cursor;
+  if (locommon_position_valid(cursor)) {
+    controller->cursor = *cursor;
+  }
 
-  controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_NONE;
-  controller->action   = LOPLAYER_CONTROLLER_ACTION_NONE;
+  controller->state = LOPLAYER_CONTROLLER_STATE_NONE;
+  if (input == NULL) return;
 
-  const bool prev_jump =
-      controller->prev.buttons & LOCOMMON_INPUT_BUTTON_JUMP;
-  const bool prev_guarding =
-      controller->prev.buttons & LOCOMMON_INPUT_BUTTON_GUARD;
-  const bool prev_dash =
-      controller->prev.buttons & LOCOMMON_INPUT_BUTTON_DASH;
-  const bool prev_menu =
-      controller->prev.buttons & LOCOMMON_INPUT_BUTTON_MENU;
+  if (input->buttons & LOCOMMON_INPUT_BUTTON_LEFT) {
+    controller->state = LOPLAYER_CONTROLLER_STATE_WALK_LEFT;
+  }
+  if (input->buttons & LOCOMMON_INPUT_BUTTON_RIGHT) {
+    controller->state = LOPLAYER_CONTROLLER_STATE_WALK_RIGHT;
+  }
 
-  if (input->buttons & LOCOMMON_INPUT_BUTTON_JUMP && !prev_jump) {
-    controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_JUMP;
-
-  } else if (input->buttons & LOCOMMON_INPUT_BUTTON_LEFT) {
-    controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_WALK_LEFT;
-    if (input->buttons & LOCOMMON_INPUT_BUTTON_DASH) {
-      controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_DASH_LEFT;
+  if (input->buttons & LOCOMMON_INPUT_BUTTON_DODGE) {
+    if (!controller->sprint) {
+      controller->sprint            = true;
+      controller->last_sprint_start = controller->ticker->time;
     }
+    if (input->buttons & LOCOMMON_INPUT_BUTTON_LEFT) {
+      controller->state = LOPLAYER_CONTROLLER_STATE_SPRINT_LEFT;
+    } else if (input->buttons & LOCOMMON_INPUT_BUTTON_RIGHT) {
+      controller->state = LOPLAYER_CONTROLLER_STATE_SPRINT_RIGHT;
+    }
+  } else {
+    if (controller->sprint) {
+      controller->sprint = false;
 
-  } else if (input->buttons & LOCOMMON_INPUT_BUTTON_RIGHT) {
-    controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_WALK_RIGHT;
-    if (input->buttons & LOCOMMON_INPUT_BUTTON_DASH) {
-      controller->movement = LOPLAYER_CONTROLLER_MOVEMENT_DASH_RIGHT;
+      assert(controller->ticker->time >= controller->last_sprint_start);
+      const size_t t =
+          controller->ticker->time - controller->last_sprint_start;
+      if (t < DODGE_PRESS_MAX_DURATION_) {
+        if (input->buttons & LOCOMMON_INPUT_BUTTON_LEFT) {
+          controller->state = LOPLAYER_CONTROLLER_STATE_DODGE_LEFT;
+        } else if (input->buttons & LOCOMMON_INPUT_BUTTON_RIGHT) {
+          controller->state = LOPLAYER_CONTROLLER_STATE_DODGE_RIGHT;
+        } else {
+          controller->state = LOPLAYER_CONTROLLER_STATE_DODGE_FORWARD;
+        }
+      }
     }
   }
 
-  if (input->buttons & LOCOMMON_INPUT_BUTTON_ATTACK) {
-    controller->action = LOPLAYER_CONTROLLER_ACTION_ATTACK;
+  if (input->buttons & LOCOMMON_INPUT_BUTTON_JUMP) {
+    if (!controller->jump) {
+      controller->jump  = true;
+      controller->state = LOPLAYER_CONTROLLER_STATE_JUMP;
+    }
+  } else {
+    controller->jump = false;
   }
 
   if (input->buttons & LOCOMMON_INPUT_BUTTON_GUARD) {
-    if (!prev_guarding) controller->action = LOPLAYER_CONTROLLER_ACTION_GUARD;
-  } else {
-    if (prev_guarding) controller->action = LOPLAYER_CONTROLLER_ACTION_UNGUARD;
+    controller->state = LOPLAYER_CONTROLLER_STATE_GUARD;
   }
-
-  if (input->buttons & LOCOMMON_INPUT_BUTTON_DASH && !prev_dash) {
-    controller->action = LOPLAYER_CONTROLLER_ACTION_DODGE;
+  if (input->buttons & LOCOMMON_INPUT_BUTTON_SHOOT) {
+    controller->state = LOPLAYER_CONTROLLER_STATE_SHOOT;
   }
-
-  if (input->buttons & LOCOMMON_INPUT_BUTTON_MENU && !prev_menu) {
-    controller->action = LOPLAYER_CONTROLLER_ACTION_MENU;
-  }
-
-  controller->prev = *input;
 }

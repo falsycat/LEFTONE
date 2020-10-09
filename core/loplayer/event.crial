@@ -1,0 +1,15 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &ev->$code);
+  END
+  DESERIALIZER_BEGIN
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &ev->$code)) {
+      return false;
+    }
+  END
+  PROPERTY executor = executor
+  PROPERTY basetime = basetime
+*/
+

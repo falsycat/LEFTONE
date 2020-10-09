@@ -16,8 +16,10 @@ target_link_libraries(loscene
   locommon
   loentity
   loground
+  loparticle
   loplayer
   loresource
   loshader
+  loui
   loworld
 )

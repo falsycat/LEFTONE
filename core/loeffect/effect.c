@@ -11,13 +11,6 @@
 
 #include "./generic.h"
 
-#define LOEFFECT_ID_EACH_(PROC) do {  \
-  PROC(IMMEDIATE_DAMAGE, "imm-damage",    imm);  \
-  PROC(CURSE,            "curse",         lasting);  \
-  PROC(CURSE_TRIGGER,    "curse-trigger", null);  \
-  PROC(AMNESIA,          "amnesia",       lasting);  \
-} while (0)
-
 const char* loeffect_id_stringify(loeffect_id_t id) {
 # define each_(NAME, s, d) do {  \
     if (LOEFFECT_ID_##NAME == id) return s;  \

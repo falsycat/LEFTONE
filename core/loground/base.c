@@ -18,16 +18,15 @@
 #include "core/loshader/ground.h"
 
 #include "./island.h"
-#include "./misc.h"
+#include "./type.h"
 
-#define LOGROUND_BASE_PARAM_TO_PACK_EACH_(PROC, PROC_str, PROC_type) do {  \
-  PROC_str  ("subclass", "ground");  \
-  PROC_type ("type",     type);  \
-  PROC      ("id",       super.super.id);  \
-  PROC      ("pos",      super.super.pos);  \
-  PROC      ("size",     super.size);  \
-} while (0)
-#define LOGROUND_BASE_PARAM_TO_PACK_COUNT 5
+/* generated serializer */
+#include "core/loground/crial/base.h"
+
+static bool
+(*const update_function_vtable_[LOGROUND_TYPE_COUNT])(loground_base_t* base) = {
+  [LOGROUND_TYPE_ISLAND] = loground_island_update,
+};
 
 static void loground_base_delete_(loentity_t* entity) {
   assert(entity != NULL);
@@ -36,18 +35,6 @@ static void loground_base_delete_(loentity_t* entity) {
   if (!base->used) return;
 
   base->used = false;
-
-# define each_(NAME, name) do {  \
-    if (base->type == LOGROUND_TYPE_##NAME) {  \
-      loground_##name##_tear_down(base);  \
-      return;  \
-    }  \
-  } while (0)
-
-  LOGROUND_TYPE_EACH_(each_);
-  assert(false);
-
-# undef each_
 }
 
 static void loground_base_die_(loentity_t* entity) {
@@ -61,16 +48,8 @@ static bool loground_base_update_(loentity_t* entity) {
   loground_base_t* base = (typeof(base)) entity;
   base->cache = (typeof(base->cache)) {0};
 
-# define each_(NAME, name) do {  \
-    if (base->type == LOGROUND_TYPE_##NAME) {  \
-      return loground_##name##_update(base);  \
-    }  \
-  } while (0)
-
-  LOGROUND_TYPE_EACH_(each_);
-  return false;
-
-# undef each_
+  assert(update_function_vtable_[base->param.type] != NULL);
+  return update_function_vtable_[base->param.type](base);
 }
 
 static void loground_base_draw_(
@@ -94,40 +73,8 @@ static void loground_base_pack_(
 
   const loground_base_t* base = (typeof(base)) entity;
 
-  msgpack_pack_map(packer, LOGROUND_BASE_PARAM_TO_PACK_COUNT+1);
-
-# define pack_(name, var) do {  \
-    mpkutil_pack_str(packer, name);  \
-    LOCOMMON_MSGPACK_PACK_ANY(packer, &base->var);  \
-  } while (0)
-# define pack_str_(name, str) do {  \
-    mpkutil_pack_str(packer, name);  \
-    mpkutil_pack_str(packer, str);  \
-  } while (0)
-# define pack_type_(name, var) do {  \
-    mpkutil_pack_str(packer, name);  \
-    mpkutil_pack_str(packer, loground_type_stringify(base->var));  \
-  } while (0)
-
-
-  LOGROUND_BASE_PARAM_TO_PACK_EACH_(pack_, pack_str_, pack_type_);
-
-# undef pack_type_
-# undef pack_str_
-# undef pack_
-
-# define each_(NAME, name) do {  \
-    if (base->type == LOGROUND_TYPE_##NAME) {  \
-      loground_##name##_pack_data(base, packer);  \
-      return;  \
-    }  \
-  } while (0)
-
-  mpkutil_pack_str(packer, "data");
-  LOGROUND_TYPE_EACH_(each_);
-  assert(false);
-
-# undef each_
+  msgpack_pack_map(packer, CRIAL_PROPERTY_COUNT_);
+  CRIAL_SERIALIZER_;
 }
 
 void loground_base_initialize(
@@ -136,93 +83,48 @@ void loground_base_initialize(
   assert(drawer != NULL);
 
   *base = (typeof(*base)) {
-    .super = {
-      .super = {
-        .vtable = {
-          .delete = loground_base_delete_,
-          .die    = loground_base_die_,
-          .update = loground_base_update_,
-          .draw   = loground_base_draw_,
-          .pack   = loground_base_pack_,
-        },
-        .subclass = LOENTITY_SUBCLASS_GROUND,
-      },
-    },
     .drawer = drawer,
   };
 }
 
 void loground_base_reinitialize(loground_base_t* base, loentity_id_t id) {
   assert(base != NULL);
+  assert(!base->used);
 
-# define reset_(name, var) do {  \
-    base->var = (typeof(base->var)) {0};  \
-  } while (0)
-# define reset_str_(name, str)
-
-  LOGROUND_BASE_PARAM_TO_PACK_EACH_(reset_, reset_str_, reset_);
-
-# undef reset_str_
-# undef reset_
-
-  base->super.super.id = id;
+  base->super = (typeof(base->super)) {
+    .super = {
+      .vtable = {
+        .delete = loground_base_delete_,
+        .die    = loground_base_die_,
+        .update = loground_base_update_,
+        .draw   = loground_base_draw_,
+        .pack   = loground_base_pack_,
+      },
+      .id       = id,
+      .subclass = LOENTITY_SUBCLASS_GROUND,
+    },
+  };
+  base->param = (typeof(base->param)) {0};
 }
 
 void loground_base_deinitialize(loground_base_t* base) {
   assert(base != NULL);
+  assert(!base->used);
 
-  loground_base_delete_(&base->super.super);
 }
 
 bool loground_base_unpack(loground_base_t* base, const msgpack_object *obj) {
   assert(base != NULL);
   assert(obj  != NULL);
 
-  loground_base_reinitialize(base, 0);
-  /* id will be overwritten below */
-
-  const char* v;
-  size_t      vlen;
+  loground_base_reinitialize(base, 0);  /* id will be overwritten */
 
   const msgpack_object_map* root = mpkutil_get_map(obj);
+  if (root == NULL) goto FAIL;
+  CRIAL_DESERIALIZER_;
+  return true;
 
-# define item_(v) mpkutil_get_map_item_by_str(root, v)
-
-# define unpack_(name, var) do {  \
-    if (!LOCOMMON_MSGPACK_UNPACK_ANY(item_(name), &base->var)) {  \
-      return NULL;  \
-    }  \
-  } while (0)
-# define unpack_type_(name, var) do {  \
-    if (!mpkutil_get_str(item_(name), &v, &vlen) ||  \
-        !loground_type_unstringify(&base->var, v, vlen)) {  \
-      return NULL;  \
-    }  \
-  } while (0)
-# define unpack_str_(name, str) do {  \
-    if (!mpkutil_get_str(item_(name), &v, &vlen) ||  \
-        !(strncmp(v, str, vlen) == 0 && str[vlen] == 0)) {  \
-      return NULL;  \
-    }  \
-  } while (0)
-
-  LOGROUND_BASE_PARAM_TO_PACK_EACH_(unpack_, unpack_str_, unpack_type_);
-
-# undef unpack_str_
-# undef unpack_type_
-# undef unpack_
-
-  const msgpack_object* data = item_("data");
-# define each_(NAME, name) do {  \
-    if (base->type == LOGROUND_TYPE_##NAME) {  \
-      return loground_##name##_unpack_data(base, data);  \
-    }  \
-  } while (0)
-
-  LOGROUND_TYPE_EACH_(each_);
+FAIL:
+  loground_base_delete_(&base->super.super);
   return false;
-
-# undef each_
-
-# undef item_
 }

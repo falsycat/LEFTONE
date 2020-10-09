@@ -1,0 +1,31 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &recipient->$code);
+  END
+  DESERIALIZER_BEGIN
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &recipient->$code)) {
+      return false;
+    }
+  END
+  PROPERTY attack  = status.attack
+  PROPERTY defence = status.defence
+  PROPERTY speed   = status.speed
+  PROPERTY jump    = status.jump
+
+  PROPERTY faith
+  PROPERTY madness
+
+  PROPERTY last_die
+  PROPERTY last_die_reason
+  PROPERTY last_resuscitate
+  PROPERTY last_damage
+  PROPERTY last_heal
+  PROPERTY last_lost
+  PROPERTY last_retrieval
+
+  PROPERTY fanatic = effects.fanatic
+  PROPERTY curse   = effects.curse
+  PROPERTY amnesia = effects.amnesia
+*/

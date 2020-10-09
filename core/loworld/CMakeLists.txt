@@ -7,21 +7,27 @@ add_library(loworld
   template.c
   view.c
 )
+target_benum_sources(loworld
+  chunk.h
+)
 target_link_libraries(loworld
   msgpackc
 
   chaos
   container
+  flasy
   jukebox
   math
   memory
   mpkutil
 
   lobullet
-  locharacter
+  lochara
   locommon
   loentity
   loground
+  loparticle
+  loplayer
   loresource
   loshader
 )

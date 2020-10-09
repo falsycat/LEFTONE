@@ -16,96 +16,55 @@
 #include "./uniblock.h"
 
 /* resources */
-#include "anysrc/header.shader.h"
-#include "anysrc/posteffect.vshader.h"
-#include "anysrc/posteffect.fshader.h"
+#include "core/loshader/anysrc/header.shader.h"
+#include "core/loshader/anysrc/posteffect.vshader.h"
+#include "core/loshader/anysrc/posteffect.fshader.h"
 
-#define LOSHADER_POSTEFFECT_UNIFORM_SRC 0
+#define UNIFORM_SRC_ 0
 
-struct loshader_posteffect_drawer_t {
-  const loshader_posteffect_program_t* prog;
-  const loshader_uniblock_t*           uniblock;
-
-  const gleasy_framebuffer_t* fb;
-
-  gleasy_buffer_uniform_t param;
-};
+#define PRIMITIVE_COUNT_ 6
 
 #pragma pack(push, 1)
 typedef struct {
-  float whole_blur;
-  float raster;
+  float distortion_amnesia;
+  float distortion_radial;
+  float distortion_urgent;
+  float raster_whole;
 
-  float radial_displacement;
-  float amnesia_displacement;
-  float radial_fade;
-
-  float brightness;
-} loshader_posteffect_drawer_param_internal_t;
-_Static_assert(
-    sizeof(float)*6 ==
-    sizeof(loshader_posteffect_drawer_param_internal_t));
+  float aberration_radial;
+  float blur_whole;
+  float brightness_whole;
+  float fade_radial;
+} loshader_posteffect_drawer_internal_param_t;
 #pragma pack(pop)
 
-#define LOSHADER_POSTEFFECT_UNIBLOCK_INDEX 0
-#define LOSHADER_POSTEFFECT_PARAM_INDEX    1
+_Static_assert(
+    sizeof(float)*8 ==
+    sizeof(loshader_posteffect_drawer_internal_param_t),
+    "recheck the type has no padding");
 
-void loshader_posteffect_program_initialize(
-    loshader_posteffect_program_t* prog) {
-  assert(prog != NULL);
+void loshader_posteffect_drawer_initialize(
+    loshader_posteffect_drawer_t* drawer,
+    const loshader_uniblock_t*    uniblock,
+    const gleasy_framebuffer_t*   fb) {
+  assert(drawer   != NULL);
+  assert(uniblock != NULL);
+  assert(fb       != NULL);
 
-  *prog = gleasy_program_new(
+  *drawer = (typeof(*drawer)) {
+    .fb = fb,
+  };
+
+  const gleasy_program_t prog = gleasy_program_new(
       loshader_header_shader_,      sizeof(loshader_header_shader_),
       loshader_posteffect_vshader_, sizeof(loshader_posteffect_vshader_),
       loshader_posteffect_fshader_, sizeof(loshader_posteffect_fshader_));
 
-  const GLuint uniblock = glGetUniformBlockIndex(*prog, "uniblock");
-  assert(glGetError() == GL_NO_ERROR);
-  glUniformBlockBinding(*prog, uniblock, LOSHADER_POSTEFFECT_UNIBLOCK_INDEX);
-
-  const GLuint param = glGetUniformBlockIndex(*prog, "param");
-  assert(glGetError() == GL_NO_ERROR);
-  glUniformBlockBinding(*prog, param, LOSHADER_POSTEFFECT_PARAM_INDEX);
-}
-
-void loshader_posteffect_program_deinitialize(
-    loshader_posteffect_program_t* prog) {
-  assert(prog != NULL);
-
-  glDeleteProgram(*prog);
-}
-
-loshader_posteffect_drawer_t* loshader_posteffect_drawer_new(
-    const loshader_posteffect_program_t* prog,
-    const loshader_uniblock_t*           uniblock,
-    const gleasy_framebuffer_t*          fb) {
-  assert(prog     != NULL);
-  assert(uniblock != NULL);
-  assert(fb       != NULL);
-
-  loshader_posteffect_drawer_t* drawer = memory_new(sizeof(*drawer));
-  *drawer = (typeof(*drawer)) {
-    .prog     = prog,
-    .uniblock = uniblock,
-    .fb       = fb,
-  };
-
-  glGenBuffers(1, &drawer->param);
-  glBindBuffer(GL_UNIFORM_BUFFER, drawer->param);
-  glBufferData(GL_UNIFORM_BUFFER,
-      sizeof(loshader_posteffect_drawer_param_internal_t),
-      NULL,
-      GL_DYNAMIC_DRAW);
-
-  return drawer;
-}
-
-void loshader_posteffect_drawer_delete(loshader_posteffect_drawer_t* drawer) {
-  if (drawer == NULL) return;
-
-  glDeleteBuffers(1, &drawer->param);
-
-  memory_delete(drawer);
+  loshader_single_drawer_initialize(
+      &drawer->super,
+      prog,
+      uniblock,
+      sizeof(loshader_posteffect_drawer_internal_param_t));
 }
 
 void loshader_posteffect_drawer_set_param(
@@ -114,31 +73,29 @@ void loshader_posteffect_drawer_set_param(
   assert(drawer != NULL);
   assert(param  != NULL);
 
-  const loshader_posteffect_drawer_param_internal_t p = {
-    .whole_blur           = param->whole_blur,
-    .raster               = param->raster,
-    .radial_displacement  = param->radial_displacement,
-    .amnesia_displacement = param->amnesia_displacement,
-    .radial_fade          = param->radial_fade,
-    .brightness           = param->brightness,
+  const loshader_posteffect_drawer_internal_param_t p = {
+    .distortion_amnesia = param->distortion_amnesia,
+    .distortion_radial  = param->distortion_radial,
+    .distortion_urgent  = param->distortion_urgent,
+    .raster_whole       = param->raster_whole,
+    .aberration_radial  = param->aberration_radial,
+    .blur_whole         = param->blur_whole,
+    .brightness_whole   = param->brightness_whole,
+    .fade_radial        = param->fade_radial,
   };
-  glBindBuffer(GL_UNIFORM_BUFFER, drawer->param);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(p), &p);
+  loshader_single_drawer_set_param(&drawer->super, &p);
 }
 
 void loshader_posteffect_drawer_draw(
     const loshader_posteffect_drawer_t* drawer) {
   assert(drawer != NULL);
 
-  glUseProgram(*drawer->prog);
-
-  loshader_uniblock_bind(drawer->uniblock, LOSHADER_POSTEFFECT_UNIBLOCK_INDEX);
-  glBindBufferBase(GL_UNIFORM_BUFFER,
-      LOSHADER_POSTEFFECT_PARAM_INDEX, drawer->param);
+  glUseProgram(drawer->super.prog);
 
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, drawer->fb->colorbuf);
-  glUniform1i(LOSHADER_POSTEFFECT_UNIFORM_SRC, 0);
+  glUniform1i(UNIFORM_SRC_, 0);
 
-  glDrawArrays(GL_TRIANGLES, 0, 6);
+  loshader_single_drawer_draw_without_use_program(
+      &drawer->super, PRIMITIVE_COUNT_);
 }

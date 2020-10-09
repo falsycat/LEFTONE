@@ -1,0 +1,14 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    $code_pack(&player->$name, packer);
+  END
+  DESERIALIZER_BEGIN
+    if (!$code_unpack(
+          &player->$name, mpkutil_get_map_item_by_str(root, "$name"))) {
+      return false;
+    }
+  END
+  PROPERTY stances = loplayer_stance_set
+  PROPERTY event   = loplayer_event
+*/

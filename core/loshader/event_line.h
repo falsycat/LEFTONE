@@ -1,63 +1,29 @@
 #pragma once
 
-#include <stddef.h>
-
-#include "util/gleasy/program.h"
 #include "util/gleasy/texture.h"
-#include "util/glyphas/block.h"
-#include "util/glyphas/drawer.h"
 
+#include "./text.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_event_line_program_t;
-
 typedef struct {
-  /* injected deps */
-  const loshader_event_line_program_t* prog;
-  const loshader_uniblock_t*           uniblock;
-
-  gleasy_texture_2d_t tex;
-
-  /* owned objects */
-  glyphas_drawer_t* glyphas;
+  loshader_text_drawer_t super;
 } loshader_event_line_drawer_t;
 
 void
-loshader_event_line_program_initialize(
-    loshader_event_line_program_t* prog
-);
-
-void
-loshader_event_line_program_deinitialize(
-    loshader_event_line_program_t* prog
-);
-
-void
 loshader_event_line_drawer_initialize(
-    loshader_event_line_drawer_t*        drawer,
-    const loshader_event_line_program_t* prog,
-    const loshader_uniblock_t*          uniblock,
-    gleasy_texture_2d_t                 tex
-);
-
-void
-loshader_event_line_drawer_deinitialize(
-    loshader_event_line_drawer_t* drawer
-);
-
-void
-loshader_event_line_drawer_clear(
     loshader_event_line_drawer_t* drawer,
-    size_t                        reserve
+    const loshader_uniblock_t*    uniblock,
+    gleasy_texture_2d_t           tex
 );
 
-void
-loshader_event_line_drawer_add_block(
-    loshader_event_line_drawer_t* drawer,
-    const glyphas_block_t*        block
-);
+#define loshader_event_line_drawer_deinitialize(drawer)  \
+    loshader_text_drawer_deinitialize(&(drawer)->super)
 
-void
-loshader_event_line_drawer_draw(
-    const loshader_event_line_drawer_t* drawer
-);
+#define loshader_event_line_drawer_clear(drawer, reserve)  \
+    loshader_text_drawer_clear(&(drawer)->super, reserve)
+
+#define loshader_event_line_drawer_add_block(drawer, block)  \
+    loshader_text_drawer_add_block(&(drawer)->super, block)
+
+#define loshader_event_line_drawer_draw(drawer)  \
+    loshader_text_drawer_draw(&(drawer)->super)

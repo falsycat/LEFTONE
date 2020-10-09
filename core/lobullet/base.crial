@@ -1,0 +1,44 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    mpkutil_pack_str(packer, $code);
+  END
+  DESERIALIZER_BEGIN
+    const char* v;
+    size_t      vlen;
+    if (!mpkutil_get_str(
+          mpkutil_get_map_item_by_str(root, "$name"), &v, &vlen) ||
+        strncmp(v, $code, vlen) != 0 || $code[vlen] != 0) {
+      goto FAIL;
+    }
+  END
+  PROPERTY subclass = "bullet"
+
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &base->$code);
+  END
+  DESERIALIZER_BEGIN
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &base->$code)) {
+      goto FAIL;
+    }
+  END
+  PROPERTY id               = super.super.id
+  PROPERTY pos              = super.super.pos
+  PROPERTY owner            = param.owner
+  PROPERTY type             = param.type
+  PROPERTY target           = param.target
+  PROPERTY basepos          = param.basepos
+  PROPERTY size             = param.size
+  PROPERTY color            = param.color
+  PROPERTY velocity         = param.velocity
+  PROPERTY acceleration     = param.acceleration
+  PROPERTY angle            = param.angle
+  PROPERTY angular_velocity = param.angular_velocity
+  PROPERTY quiet            = param.quiet
+  PROPERTY knockback        = param.knockback
+  PROPERTY effect           = param.effect
+  PROPERTY since            = param.since
+  PROPERTY duration         = param.duration
+*/

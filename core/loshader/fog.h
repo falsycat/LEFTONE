@@ -1,14 +1,15 @@
 #pragma once
 
-#include "util/gleasy/program.h"
+#include "util/math/vector.h"
 
 #include "core/locommon/position.h"
 
+#include "./single.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_fog_program_t;
-
-typedef struct loshader_fog_drawer_t loshader_fog_drawer_t;
+typedef struct {
+  loshader_single_drawer_t super;
+} loshader_fog_drawer_t;
 
 typedef enum {
   LOSHADER_FOG_TYPE_NONE        = 0,
@@ -27,25 +28,13 @@ typedef struct {
 } loshader_fog_drawer_param_t;
 
 void
-loshader_fog_program_initialize(
-    loshader_fog_program_t* prog
+loshader_fog_drawer_initialize(
+    loshader_fog_drawer_t*     drawer,
+    const loshader_uniblock_t* uniblock
 );
 
-void
-loshader_fog_program_deinitialize(
-    loshader_fog_program_t* prog
-);
-
-loshader_fog_drawer_t*
-loshader_fog_drawer_new(
-    const loshader_fog_program_t* prog,
-    const loshader_uniblock_t*    uniblock
-);
-
-void
-loshader_fog_drawer_delete(
-    loshader_fog_drawer_t* drawer
-);
+#define loshader_fog_drawer_deinitialize(drawer)  \
+    loshader_single_drawer_deinitialize(&(drawer)->super)
 
 void
 loshader_fog_drawer_set_param(

@@ -8,7 +8,7 @@
 #include "core/locommon/ticker.h"
 #include "core/loentity/store.h"
 #include "core/loresource/set.h"
-#include "core/loshader/bullet.h"
+#include "core/loshader/set.h"
 
 #include "./base.h"
 
@@ -17,12 +17,12 @@ typedef struct lobullet_pool_t lobullet_pool_t;
 
 lobullet_pool_t*  /* OWNERSHIP */
 lobullet_pool_new(
-    loresource_set_t*         res,
-    loshader_bullet_drawer_t* drawer,
-    locommon_counter_t*       idgen,
-    const locommon_ticker_t*  ticker,
-    loentity_store_t*         entities,
-    size_t                    length
+    loresource_set_t*        res,
+    loshader_set_t*          shaders,
+    locommon_counter_t*      idgen,
+    const locommon_ticker_t* ticker,
+    loentity_store_t*        entities,
+    size_t                   length
 );
 
 void

@@ -12,6 +12,7 @@
 #include <msgpack.h>
 #include <msgpack/fbuffer.h>
 
+#include "util/flasy/flasy.h"
 #include "util/memory/memory.h"
 #include "util/mpkutil/file.h"
 
@@ -35,6 +36,7 @@ struct loworld_store_t {
   char   path[LOWORLD_STORE_PATH_MAX_LENGTH+LOWORLD_CHUNK_FILENAME_MAX];
   size_t basepath_length;
 
+  flasy_t*                   flasy;
   const loworld_poolset_t*   pools;
   const loworld_generator_t* generator;
 
@@ -135,7 +137,7 @@ static bool loworld_store_save_chunk_to_file_(
 
   loworld_store_build_chunk_filename_(store, chunk);
 
-  FILE* fp = fopen(store->path, "wb");
+  FILE* fp = flasy_open_file(store->flasy, store->path, true);
   if (fp == NULL) return false;
 
   msgpack_packer packer;
@@ -144,16 +146,18 @@ static bool loworld_store_save_chunk_to_file_(
   loworld_chunk_pack(chunk, &packer);
 
   const bool success = (ferror(fp) == 0);
-  fclose(fp);
+  flasy_close_file(store->flasy, fp);
   return success;
 }
 
 loworld_store_t* loworld_store_new(
+    flasy_t*                   flasy,
     const loworld_poolset_t*   pools,
     const loworld_generator_t* generator,
     size_t                     chunks_length,
     const char*                basepath,
     size_t                     basepath_length) {
+  assert(flasy     != NULL);
   assert(pools     != NULL);
   assert(generator != NULL);
   assert(chunks_length > 0);
@@ -167,6 +171,7 @@ loworld_store_t* loworld_store_new(
       sizeof(*store) + (chunks_length-1)*sizeof(store->chunks[0]));
   *store = (typeof(*store)) {
     .basepath_length = basepath_length,
+    .flasy           = flasy,
     .pools           = pools,
     .generator       = generator,
     .chunks_length   = chunks_length,

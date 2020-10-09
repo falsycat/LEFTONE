@@ -3,15 +3,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "util/gleasy/program.h"
 #include "util/math/vector.h"
 
+#include "./instanced.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_character_program_t;
-
-struct loshader_character_drawer_t;
-typedef struct loshader_character_drawer_t loshader_character_drawer_t;
+typedef struct {
+  loshader_instanced_drawer_t super;
+} loshader_character_drawer_t;
 
 typedef enum {
   LOSHADER_CHARACTER_ID_PLAYER     = 0,
@@ -34,9 +33,11 @@ typedef enum {
 typedef struct {
   loshader_character_id_t character_id;
 
-  uint32_t from_motion_id;
-  uint32_t to_motion_id;
-  float    motion_time;
+  struct {
+    loshader_character_motion_id_t from;
+    loshader_character_motion_id_t to;
+    float                          time;
+  } motion;
 
   float  marker;
   vec2_t marker_offset;
@@ -47,31 +48,16 @@ typedef struct {
 } loshader_character_drawer_instance_t;
 
 void
-loshader_character_program_initialize(
-    loshader_character_program_t* prog
-);
-
-void
-loshader_character_program_deinitialize(
-    loshader_character_program_t* prog
-);
-
-loshader_character_drawer_t*  /* OWNERSHIP */
-loshader_character_drawer_new(
-    const loshader_character_program_t* prog,
-    const loshader_uniblock_t*          uniblock
-);
-
-void
-loshader_character_drawer_delete(
-    loshader_character_drawer_t* drawer  /* OWNERSHIP */
-);
-
-void
-loshader_character_drawer_clear(
+loshader_character_drawer_initialize(
     loshader_character_drawer_t* drawer,
-    size_t                       reserve
+    const loshader_uniblock_t*   uniblock
 );
+
+#define loshader_character_drawer_deinitialize(drawer)  \
+    loshader_instanced_drawer_deinitialize(&(drawer)->super)
+
+#define loshader_character_drawer_clear(drawer, reserve)  \
+    loshader_instanced_drawer_clear(&(drawer)->super, reserve)
 
 void
 loshader_character_drawer_add_instance(

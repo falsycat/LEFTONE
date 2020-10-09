@@ -13,54 +13,61 @@
 #include "core/loentity/store.h"
 #include "core/loresource/set.h"
 #include "core/loshader/bullet.h"
+#include "core/loshader/set.h"
 
-#include "./misc.h"
+#include "./type.h"
 
-typedef enum {
-  LOBULLET_BASE_KNOCKBACK_ALGORITHM_VELOCITY,
-  LOBULLET_BASE_KNOCKBACK_ALGORITHM_POSITION,
-} lobullet_base_knockback_algorithm_t;
+typedef struct {
+  lobullet_type_t type;
+  loentity_id_t   owner;
+  loentity_id_t   target;
+
+  locommon_position_t basepos;
+  vec2_t              size;
+  vec4_t              color;
+
+  vec2_t velocity;
+  vec2_t acceleration;
+
+  float angle;
+  float angular_velocity;
+
+  bool  quiet;
+  float knockback;
+
+  loeffect_t effect;
+
+  uint64_t since;
+  uint64_t duration;
+} lobullet_base_param_t;
 
 typedef struct {
   loentity_bullet_t super;
   bool              used;
 
-  /* injected deps */
-  loresource_set_t*         res;
-  loshader_bullet_drawer_t* drawer;
-  const locommon_ticker_t*  ticker;
-  loentity_store_t*         entities;
+  loresource_set_t*        res;
+  loshader_set_t*          shaders;
+  const locommon_ticker_t* ticker;
+  loentity_store_t*        entities;
 
-  /* params not to be packed */
+  lobullet_base_param_t param;
+
   struct {
-    bool       toxic;
-    loeffect_t effect;
-        /* When toxic is true, apply this effect to characters hit. */
-
-    struct {
-      float                               acceleration;
-      lobullet_base_knockback_algorithm_t algorithm;
-    } knockback;
+    bool  toxic;
+    float knockback;
+    bool  velocity_calc;
 
     loshader_bullet_drawer_instance_t instance;
-        /* instance pos is added to draw pos */
   } cache;
-
-  /* params to be packed (includes id) */
-  lobullet_type_t type;
-
-# define LOBULLET_BASE_DATA_MAX_SIZE 256
-  uint8_t data[LOBULLET_BASE_DATA_MAX_SIZE];
-      /* pack function for the type is used */
 } lobullet_base_t;
 
 void
 lobullet_base_initialize(
-    lobullet_base_t*          base,
-    loresource_set_t*         res,
-    loshader_bullet_drawer_t* drawer,
-    const locommon_ticker_t*  ticker,
-    loentity_store_t*         entities
+    lobullet_base_t*         base,
+    loresource_set_t*        res,
+    loshader_set_t*          shaders,
+    const locommon_ticker_t* ticker,
+    loentity_store_t*        entities
 );
 
 void

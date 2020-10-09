@@ -11,13 +11,11 @@
 #include "util/math/algorithm.h"
 #include "util/math/vector.h"
 #include "util/math/matrix.h"
-#include "util/memory/memory.h"
 
 #include "core/locommon/position.h"
+#include "core/locommon/screen.h"
 
-struct loshader_uniblock_t {
-  gleasy_buffer_uniform_t buf;
-};
+#define AA_ .00001f
 
 #pragma pack(push, 1)
 typedef struct {
@@ -34,7 +32,8 @@ typedef struct {
 } loshader_uniblock_internal_t;
 _Static_assert(
     sizeof(float)*5 + 12 + sizeof(float)*37 ==
-    sizeof(loshader_uniblock_internal_t));
+    sizeof(loshader_uniblock_internal_t),
+    "recheck the type has no padding");
 #pragma pack(pop)
 
 bool loshader_uniblock_param_valid(const loshader_uniblock_param_t* param) {
@@ -46,42 +45,25 @@ bool loshader_uniblock_param_valid(const loshader_uniblock_param_t* param) {
       MATH_FLOAT_VALID(param->time);
 }
 
-loshader_uniblock_t* loshader_uniblock_new(void) {
-  loshader_uniblock_t* uni = memory_new(sizeof(*uni));
-  *uni = (typeof(*uni)) {0};
+void loshader_uniblock_initialize(
+    loshader_uniblock_t* uni, const locommon_screen_t* screen) {
+  assert(uni != NULL);
+  assert(locommon_screen_valid(screen));
+
+  *uni = (typeof(*uni)) {
+    .screen = screen,
+  };
 
   glGenBuffers(1, &uni->buf);
   glBindBuffer(GL_UNIFORM_BUFFER, uni->buf);
   glBufferData(GL_UNIFORM_BUFFER,
       sizeof(loshader_uniblock_internal_t), NULL, GL_DYNAMIC_DRAW);
-
-  return uni;
 }
 
-void loshader_uniblock_delete(loshader_uniblock_t* uni) {
-  if (uni == NULL) return;
+void loshader_uniblock_deinitialize(loshader_uniblock_t* uni) {
+  assert(uni != NULL);
 
   glDeleteBuffers(1, &uni->buf);
-  memory_delete(uni);
-}
-
-void loshader_uniblock_update_display_param(
-    loshader_uniblock_t* uni, const vec2_t* resolution, const vec2_t* dpi) {
-  assert(uni != NULL);
-  assert(vec2_valid(resolution));
-  assert(vec2_valid(dpi));
-
-  const loshader_uniblock_internal_t internal = {
-    .resolution = *resolution,
-    .dpi        = *dpi,
-    .aa         = MATH_MAX(dpi->x, dpi->y) / 100000,
-  };
-
-  static const size_t size =
-      offsetof(loshader_uniblock_internal_t, aa) + sizeof(internal.aa);
-
-  glBindBuffer(GL_UNIFORM_BUFFER, uni->buf);
-  glBufferSubData(GL_UNIFORM_BUFFER, 0, size, &internal);
 }
 
 void loshader_uniblock_update_param(
@@ -97,17 +79,16 @@ void loshader_uniblock_update_param(
       param->pos.fract.y);
 
   const loshader_uniblock_internal_t internal = {
-    .proj   = param->proj,
-    .camera = param->cam,
-    .pos    = pos,
-    .time   = param->time,
+    .resolution = uni->screen->resolution,
+    .dpi        = uni->screen->dpi,
+    .aa         = MATH_MAX(uni->screen->dpi.x, uni->screen->dpi.y) * AA_,
+    .proj       = param->proj,
+    .camera     = param->cam,
+    .pos        = pos,
+    .time       = param->time,
   };
-
-  static const size_t offset = offsetof(loshader_uniblock_internal_t, proj);
-
   glBindBuffer(GL_UNIFORM_BUFFER, uni->buf);
-  glBufferSubData(GL_UNIFORM_BUFFER,
-      offset, sizeof(internal)-offset, &internal.proj);
+  glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(internal), &internal);
 }
 
 void loshader_uniblock_bind(const loshader_uniblock_t* uni, GLuint index) {

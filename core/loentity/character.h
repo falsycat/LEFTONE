@@ -25,6 +25,8 @@ struct loentity_character_t {
   loentity_t super;
 
   loentity_character_vtable_t vtable;
+
+  vec2_t velocity;
 };
 
 void

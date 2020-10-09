@@ -1,0 +1,60 @@
+/* CRIAL
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    mpkutil_pack_str(packer, $code);
+  END
+  DESERIALIZER_BEGIN
+    const char* v;
+    size_t      vlen;
+    if (!mpkutil_get_str(
+          mpkutil_get_map_item_by_str(root, "$name"), &v, &vlen) ||
+        strncmp(v, $code, vlen) != 0 || $code[vlen] != 0) {
+      goto FAIL;
+    }
+  END
+  PROPERTY subclass = "character"
+
+  SERIALIZER_BEGIN
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &base->$code);
+  END
+  DESERIALIZER_BEGIN
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &base->$code)) {
+      goto FAIL;
+    }
+  END
+  PROPERTY id                    = super.super.id
+  PROPERTY pos                   = super.super.pos
+  PROPERTY velocity              = super.velocity
+  PROPERTY type                  = param.type
+  PROPERTY recipient             = param.recipient
+  PROPERTY last_state_changed    = param.last_state_changed
+  PROPERTY last_strategy_changed = param.last_strategy_changed
+  PROPERTY ground                = param.ground
+  PROPERTY on_ground             = param.on_ground
+  PROPERTY direction             = param.direction
+  PROPERTY movement              = param.movement
+  PROPERTY gravity               = param.gravity
+  PROPERTY knockback             = param.knockback
+  PROPERTY last_knockback        = param.last_knockback
+  PROPERTY last_bullet_hit       = param.last_bullet_hit
+  PROPERTY anchor_pos            = param.anchor.pos
+  PROPERTY anchor_vec            = param.anchor.vec
+
+  SERIALIZER_BEGIN
+    const $code v = base->param.$name;
+    mpkutil_pack_str(packer, "$name");
+    LOCOMMON_MSGPACK_PACK_ANY(packer, &v);
+  END
+  DESERIALIZER_BEGIN
+    $code v;
+    if (!LOCOMMON_MSGPACK_UNPACK_ANY(
+          mpkutil_get_map_item_by_str(root, "$name"), &v)) {
+      goto FAIL;
+    }
+    base->param.$name = v;
+  END
+  PROPERTY state    = lochara_state_t
+  PROPERTY strategy = lochara_strategy_t
+*/

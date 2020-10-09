@@ -3,144 +3,159 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
-#include "util/glyphas/block.h"
-#include "util/glyphas/cache.h"
+#include <msgpack.h>
+
+#include "util/math/algorithm.h"
 #include "util/math/vector.h"
-#include "util/memory/memory.h"
+#include "util/mpkutil/get.h"
+#include "util/mpkutil/pack.h"
 
+#include "core/locommon/msgpack.h"
 #include "core/locommon/position.h"
-#include "core/loresource/set.h"
-#include "core/loshader/set.h"
+#include "core/locommon/ticker.h"
+#include "core/loentity/entity.h"
 
-struct loplayer_event_t {
-  loplayer_event_param_t param;
-      /* convertible between loplayer_event_t* and loplayer_event_param_t* */
+/* generated serializer */
+#include "core/loplayer/crial/event.h"
 
-  /* injected deps */
-  loresource_set_t* res;
-  loshader_set_t*   shaders;
+static bool loplayer_event_execute_command_(
+    loplayer_event_t* ev, const loplayer_event_command_t* command) {
+  assert(ev != NULL);
 
-  /* owned objects */
-  glyphas_cache_t* font;
-  glyphas_block_t* text;
+  if (ev->exectime > ev->ticker->time) return false;
 
-  /* immutable params */
-  struct {
-    vec2_t fontsz;
-  } geometry;
-};
-
-static void loplayer_event_calculate_geometry_(loplayer_event_t* event) {
-  assert(event != NULL);
-
-  typeof(event->geometry)* geo = &event->geometry;
-
-  geo->fontsz = event->shaders->dpi;
-  vec2_muleq(&geo->fontsz, .15f);
+  switch (command->type) {
+  case LOPLAYER_EVENT_COMMAND_TYPE_NONE:
+    return false;
+  case LOPLAYER_EVENT_COMMAND_TYPE_FINALIZE:
+    ev->basetime = 0;
+    ev->executor = 0;
+    ev->commands = NULL;
+    ev->ctx      = (typeof(ev->ctx)) {
+      .line = { .last_update = ev->ticker->time, },
+    };
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_PLAY_MUSIC:
+    ev->ctx.music = (typeof(ev->ctx.music)) {
+      .enable = true,
+      .id     = command->music,
+      .since  = ev->exectime,
+    };
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_STOP_MUSIC:
+    ev->ctx.music = (typeof(ev->ctx.music)) {
+      .enable = false,
+    };
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_SET_AREA:
+    ev->ctx.area.size = command->area;
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_SET_CINESCOPE:
+    ev->ctx.cinescope = command->cinescope;
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_SET_LINE:
+    if (ev->ctx.line.text_id != command->line) {
+      ev->ctx.line.text_id     = command->line;
+      ev->ctx.line.last_update = ev->ticker->time;
+    }
+    return true;
+  case LOPLAYER_EVENT_COMMAND_TYPE_WAIT:
+    ev->exectime += command->wait;
+    return true;
+  }
+  __builtin_unreachable();
 }
 
-loplayer_event_t* loplayer_event_new(
-    loresource_set_t* res, loshader_set_t* shaders) {
-  assert(res     != NULL);
-  assert(shaders != NULL);
+void loplayer_event_initialize(
+    loplayer_event_t* ev, const locommon_ticker_t* ticker) {
+  assert(ev     != NULL);
+  assert(ticker != NULL);
 
-  loplayer_event_t* event = memory_new(sizeof(*event));
-  *event = (typeof(*event)) {
-    .res     = res,
-    .shaders = shaders,
+  *ev = (typeof(*ev)) {
+    .ticker = ticker,
   };
-  loplayer_event_calculate_geometry_(event);
-
-  event->font = glyphas_cache_new(
-      shaders->tex.event_line,
-      &res->font.serif,
-      event->geometry.fontsz.x,
-      event->geometry.fontsz.y);
-
-  event->text = glyphas_block_new(
-      GLYPHAS_ALIGNER_DIRECTION_HORIZONTAL,
-      -event->geometry.fontsz.y,
-      INT32_MAX,
-      256);
-
-  return event;
 }
 
-void loplayer_event_delete(loplayer_event_t* event) {
-  if (event == NULL) return;
+void loplayer_event_deinitialize(loplayer_event_t* ev) {
+  assert(ev != NULL);
 
-  glyphas_cache_delete(event->font);
-  glyphas_block_delete(event->text);
-
-  memory_delete(event);
 }
 
-loplayer_event_param_t* loplayer_event_take_control(
-    loplayer_event_t* event, loentity_id_t id) {
-  assert(event != NULL);
+bool loplayer_event_execute_commands(
+    loplayer_event_t*               ev,
+    loentity_id_t                   executor,
+    const locommon_position_t*      pos,
+    const loplayer_event_command_t* commands) {
+  assert(ev       != NULL);
+  assert(commands != NULL);
+  assert(locommon_position_valid(pos));
 
-  if (event->param.controlled) return NULL;
+  const bool first = ev->basetime == 0;
 
-  event->param = (typeof(event->param)) {
-    .controlled    = true,
-    .controlled_by = id,
-  };
-  return &event->param;
+  if (first) ev->executor = executor;
+  if (ev->executor != executor) return false;
+
+  if (ev->commands != commands) {
+    if (ev->commands != NULL || first) {
+      ev->basetime = ev->ticker->time;
+    }
+    ev->commands = commands;
+    ev->itr      = commands;
+    ev->exectime = ev->basetime;
+  }
+  ev->ctx.area.pos = *pos;
+
+  while (loplayer_event_execute_command_(ev, ev->itr)) ++ev->itr;
+  return true;
 }
 
-void loplayer_event_abort(loplayer_event_t* event) {
-  assert(event != NULL);
+void loplayer_event_pack(const loplayer_event_t* ev, msgpack_packer* packer) {
+  assert(ev     != NULL);
+  assert(packer != NULL);
 
-  if (!event->param.controlled) return;
-
-  loplayer_event_param_release_control(&event->param);
+  msgpack_pack_map(packer, CRIAL_PROPERTY_COUNT_);
+  CRIAL_SERIALIZER_;
 }
 
-void loplayer_event_draw(const loplayer_event_t* event) {
-  assert(event != NULL);
+bool loplayer_event_unpack(loplayer_event_t* ev, const msgpack_object* obj) {
+  assert(ev  != NULL);
+  assert(obj != NULL);
 
-  if (!event->param.controlled) return;
-
-  loshader_event_line_drawer_add_block(
-      &event->shaders->drawer.event_line, event->text);
+  const msgpack_object_map* root = mpkutil_get_map(obj);
+  CRIAL_DESERIALIZER_;
+  return true;
 }
 
-const loplayer_event_param_t* loplayer_event_get_param(
-    const loplayer_event_t* event) {
-  assert(event != NULL);
+void loplayer_event_bind_position_in_area(
+    const loplayer_event_t* ev, locommon_position_t* pos) {
+  assert(ev != NULL);
+  assert(locommon_position_valid(pos));
 
-  if (!event->param.controlled) return NULL;
-
-  return &event->param;
+  loplayer_event_bind_rect_in_area(ev, pos, &vec2(0, 0));
 }
 
-void loplayer_event_param_set_line(
-    loplayer_event_param_t* param, const char* str, size_t len) {
-  assert(param != NULL);
+void loplayer_event_bind_rect_in_area(
+    const loplayer_event_t* ev, locommon_position_t* pos, const vec2_t* size) {
+  assert(ev != NULL);
+  assert(locommon_position_valid(pos));
+  assert(vec2_valid(size));
 
-  loplayer_event_t* event = (typeof(event)) param;
+  if (ev->ctx.area.size.x <= 0 || ev->ctx.area.size.y <= 0) return;
 
-  glyphas_block_clear(event->text);
+  vec2_t sz;
+  vec2_sub(&sz, &ev->ctx.area.size, size);
+  if (sz.x < 0) sz.x = 0;
+  if (sz.y < 0) sz.y = 0;
 
-  static const vec4_t white = vec4(1, 1, 1, 1);
-  glyphas_block_add_characters(event->text, event->font, &white, str, len);
+  vec2_t v;
+  locommon_position_sub(&v, pos, &ev->ctx.area.pos);
 
-  static const vec2_t center = vec2(.5f, -.5f);
-  glyphas_block_set_origin(event->text, &center);
+  if (fabs(v.x) > sz.x) v.x = MATH_SIGN(v.x)*sz.x;
+  if (fabs(v.y) > sz.y) v.y = MATH_SIGN(v.y)*sz.y;
 
-  const vec2_t scale = vec2(
-      2/event->shaders->resolution.x, 2/event->shaders->resolution.y);
-  glyphas_block_scale(event->text, &scale);
-
-  static const vec2_t trans = vec2(0, -.85f);
-  glyphas_block_translate(event->text, &trans);
-}
-
-void loplayer_event_param_release_control(loplayer_event_param_t* param) {
-  assert(param != NULL);
-  assert(param->controlled);
-
-  loplayer_event_param_set_line(param, "", 0);
-  param->controlled = false;
+  *pos = ev->ctx.area.pos;
+  vec2_addeq(&pos->fract, &v);
+  locommon_position_reduce(pos);
 }

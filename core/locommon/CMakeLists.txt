@@ -4,6 +4,7 @@ add_library(locommon
   null.c
   physics.c
   position.c
+  screen.c
   ticker.c
 )
 target_link_libraries(locommon
@@ -12,4 +13,7 @@ target_link_libraries(locommon
   coly2d
   math
   mpkutil
+)
+add_dependencies(locommon
+  benum-generated
 )

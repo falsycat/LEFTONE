@@ -6,6 +6,10 @@ add_library(loresource
   sound.c
   text.c
 )
+target_benum_sources(loresource
+  music.h
+  sound.h
+)
 target_any_sources(loresource
   font/sans.woff
   font/serif.woff
@@ -36,5 +40,4 @@ target_link_libraries(loresource
   glyphas
   jukebox
   math
-  memory
 )

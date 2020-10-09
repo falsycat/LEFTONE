@@ -21,8 +21,8 @@ typedef struct {
   loresource_set_t*        res;
   loshader_set_t*          shaders;
   const locommon_ticker_t* ticker;
+  const loplayer_t*        player;
   const loworld_view_t*    view;
-  loplayer_t*              player;
 
   /* immutable params */
   loworld_environment_config_t config;
@@ -31,9 +31,7 @@ typedef struct {
   float                 transition;
   loworld_chunk_biome_t biome;
 
-  loresource_music_player_t* music;
-  bool                       music_control;
-  bool                       sound_attenuation;
+  loresource_music_t* music;
 
   loshader_backwall_drawer_param_t backwall;
   loshader_fog_drawer_param_t      fog;
@@ -45,8 +43,8 @@ loworld_environment_initialize(
     loresource_set_t*                   res,
     loshader_set_t*                     shaders,
     const locommon_ticker_t*            ticker,
+    const loplayer_t*                   player,
     const loworld_view_t*               view,
-    loplayer_t*                         player,
     const loworld_environment_config_t* config
 );
 

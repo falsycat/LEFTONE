@@ -73,7 +73,7 @@ vec4 bounds_fog(void) {
 
   vec2 pos;
   pos.x = (p.bounds_pos.x - uni.pos.x) + (p.bounds_pos.z - uni.pos.z);
-  pos.y = (p.bounds_pos.y - uni.pos.y) + (p.bounds_pos.y - uni.pos.y);
+  pos.y = (p.bounds_pos.y - uni.pos.y) + (p.bounds_pos.w - uni.pos.w);
   pos   = (uni.proj * uni.cam * vec4(pos, 0., 1.)).xy;
 
   vec2 size = (uni.proj * uni.cam * vec4(p.bounds_size, 0., 0.)).xy;

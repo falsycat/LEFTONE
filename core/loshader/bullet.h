@@ -2,15 +2,14 @@
 
 #include <stddef.h>
 
-#include "util/gleasy/program.h"
 #include "util/math/vector.h"
 
+#include "./instanced.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_bullet_program_t;
-
-struct loshader_bullet_drawer_t;
-typedef struct loshader_bullet_drawer_t loshader_bullet_drawer_t;
+typedef struct {
+  loshader_instanced_drawer_t super;
+} loshader_bullet_drawer_t;
 
 typedef enum {
   LOSHADER_BULLET_ID_LIGHT    = 0,
@@ -30,31 +29,16 @@ typedef struct {
 } loshader_bullet_drawer_instance_t;
 
 void
-loshader_bullet_program_initialize(
-    loshader_bullet_program_t* prog
+loshader_bullet_drawer_initialize(
+    loshader_bullet_drawer_t*  drawer,
+    const loshader_uniblock_t* uniblock
 );
 
-void
-loshader_bullet_program_deinitialize(
-    loshader_bullet_program_t* prog
-);
+#define loshader_bullet_drawer_deinitialize(drawer)  \
+    loshader_instanced_drawer_deinitialize(&(drawer)->super)
 
-loshader_bullet_drawer_t*
-loshader_bullet_drawer_new(
-    const loshader_bullet_program_t* prog,
-    const loshader_uniblock_t*       uniblock
-);
-
-void
-loshader_bullet_drawer_delete(
-    loshader_bullet_drawer_t* drawer
-);
-
-void
-loshader_bullet_drawer_clear(
-    loshader_bullet_drawer_t* drawer,
-    size_t                    reserve
-);
+#define loshader_bullet_drawer_clear(drawer, reserve)  \
+    loshader_instanced_drawer_clear(&(drawer)->super, reserve)
 
 void
 loshader_bullet_drawer_add_instance(

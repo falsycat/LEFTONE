@@ -9,9 +9,9 @@
 #include "./sound.h"
 
 typedef struct {
-  loresource_sound_t* sound;
-  loresource_music_t  music;
-  loresource_font_t   font;
+  loresource_sound_set_t sound;
+  loresource_music_set_t music;
+  loresource_font_t      font;
 
   loresource_language_t lang;
 } loresource_set_t;

@@ -3,7 +3,9 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <GL/glew.h>
 #include <SDL2/SDL.h>
@@ -128,7 +130,8 @@ int main(int argc, char** argv) {
 
   app_get_dpi_(&libs, &args);
 
-  loscene_context_t* ctx = loscene_context_new(&args.scene);
+  loscene_context_t ctx;
+  loscene_context_initialize(&ctx, &args.scene);
 
   locommon_input_t input = {
     .resolution = vec2(args.scene.width, args.scene.height),
@@ -147,10 +150,10 @@ int main(int argc, char** argv) {
       if (!app_event_handle(&input, &e)) goto EXIT;
     }
 
-    if (!loscene_context_update(ctx, &input, base_time)) goto EXIT;
+    if (!loscene_context_update(&ctx, &input, base_time)) goto EXIT;
 
     glClear(GL_COLOR_BUFFER_BIT);
-    loscene_context_draw(ctx);
+    loscene_context_draw(&ctx);
     SDL_GL_SwapWindow(libs.win);
 
 #   ifndef NDEBUG
@@ -166,7 +169,7 @@ int main(int argc, char** argv) {
   }
 
 EXIT:
-  loscene_context_delete(ctx);
+  loscene_context_deinitialize(&ctx);
   app_deinitialize_libraries_(&libs);
-  return 0;
+  return EXIT_SUCCESS;
 }

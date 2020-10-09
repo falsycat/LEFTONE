@@ -9,12 +9,17 @@ add_library(loshader
   ground.c
   hud_bar.c
   hud_text.c
+  instanced.c
   menu_background.c
   menu_stance.c
   menu_text.c
+  particle.c
   pixsort.c
+  popup_text.c
   posteffect.c
   set.c
+  single.c
+  text.c
   uniblock.c
 )
 target_any_sources(loshader
@@ -45,6 +50,10 @@ target_any_sources(loshader
   menu_stance.fshader
   menu_text.vshader
   menu_text.fshader
+  particle.vshader
+  particle.fshader
+  popup_text.vshader
+  popup_text.fshader
   pixsort.vshader
   pixsort.fshader
   posteffect.vshader

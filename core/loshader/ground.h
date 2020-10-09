@@ -1,16 +1,14 @@
 #pragma once
 
-#include <stddef.h>
-
 #include "util/gleasy/program.h"
 #include "util/math/vector.h"
 
+#include "./instanced.h"
 #include "./uniblock.h"
 
-typedef gleasy_program_t loshader_ground_program_t;
-
-struct loshader_ground_drawer_t;
-typedef struct loshader_ground_drawer_t loshader_ground_drawer_t;
+typedef struct {
+  loshader_instanced_drawer_t super;
+} loshader_ground_drawer_t;
 
 typedef enum {
   LOSHADER_GROUND_ID_ISLAND = 0,
@@ -24,31 +22,16 @@ typedef struct {
 } loshader_ground_drawer_instance_t;
 
 void
-loshader_ground_program_initialize(
-    loshader_ground_program_t* prog
+loshader_ground_drawer_initialize(
+    loshader_ground_drawer_t*  drawer,
+    const loshader_uniblock_t* uniblock
 );
 
-void
-loshader_ground_program_deinitialize(
-    loshader_ground_program_t* prog
-);
+#define loshader_ground_drawer_deinitialize(drawer)  \
+    loshader_instanced_drawer_deinitialize(&(drawer)->super)
 
-loshader_ground_drawer_t*
-loshader_ground_drawer_new(
-    const loshader_ground_program_t* prog,
-    const loshader_uniblock_t*       uniblock
-);
-
-void
-loshader_ground_drawer_delete(
-    loshader_ground_drawer_t* drawer
-);
-
-void
-loshader_ground_drawer_clear(
-    loshader_ground_drawer_t* drawer,
-    size_t                    reserve
-);
+#define loshader_ground_drawer_clear(drawer, reserve)  \
+    loshader_instanced_drawer_clear(&(drawer)->super, reserve)
 
 void
 loshader_ground_drawer_add_instance(
